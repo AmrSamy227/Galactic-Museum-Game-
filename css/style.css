@@ -1,0 +1,69 @@
+/* ============================================
+   AFTERLIGHT: Mars Rover — Global Styles
+   ============================================ */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #080D16;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Courier New', monospace;
+    color: #F2F5F8;
+    cursor: default;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+#game-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+#game-container canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+#ui-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 100;
+    pointer-events: none;
+}
+
+#ui-overlay > * {
+    pointer-events: auto;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+    width: 4px;
+}
+::-webkit-scrollbar-track {
+    background: #080D16;
+}
+::-webkit-scrollbar-thumb {
+    background: #69C9F2;
+    border-radius: 2px;
+}
+
+/* Selection */
+::selection {
+    background: #69C9F2;
+    color: #080D16;
+}
+

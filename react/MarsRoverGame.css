@@ -1,0 +1,565 @@
+/* AFTERLIGHT: Mars Rover — React Component Scoped Styles */
+
+.afterlight-rover-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 500px;
+  overflow: hidden;
+  background: #080D16;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace, sans-serif;
+  color: #F2F5F8;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+.afterlight-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  outline: none;
+  touch-action: none;
+}
+
+/* Glassmorphic HUD elements */
+.al-hud {
+  position: absolute;
+  z-index: 10;
+  pointer-events: none;
+  background: rgba(17, 27, 41, 0.88);
+  border: 1px solid rgba(36, 54, 77, 0.7);
+  border-radius: 8px;
+  padding: 10px 14px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.al-tl {
+  top: 14px;
+  left: 14px;
+  width: min(320px, 45vw);
+}
+
+.al-tr {
+  top: 14px;
+  right: 14px;
+  text-align: right;
+  pointer-events: auto;
+}
+
+.al-tc {
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.al-bl {
+  bottom: 14px;
+  left: 14px;
+  font-size: 11px;
+}
+
+.al-br {
+  bottom: 14px;
+  right: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+.al-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  color: #69C9F2;
+  letter-spacing: 0.12em;
+  margin-bottom: 2px;
+}
+
+.al-objective {
+  font-size: 12.5px;
+  font-weight: 600;
+  margin: 4px 0 6px;
+  line-height: 1.3;
+}
+
+.al-bar-track {
+  height: 5px;
+  background: #172436;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.al-bar-fill {
+  height: 100%;
+  background: #69C9F2;
+  transition: width 0.25s ease;
+}
+
+.al-health .al-bar-fill {
+  background: linear-gradient(90deg, #ef4444, #e47d54);
+}
+
+.al-sprint .al-bar-fill {
+  background: linear-gradient(90deg, #69C9F2, #8ee0ff);
+}
+
+.al-radar-wrap {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(105, 201, 242, 0.45);
+  background: rgba(11, 19, 31, 0.94);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.al-radar-label {
+  position: absolute;
+  bottom: -4px;
+  background: #080D16;
+  border: 1px solid #69C9F2;
+  border-radius: 8px;
+  font-size: 8px;
+  padding: 1px 5px;
+  color: #69C9F2;
+  font-family: monospace;
+}
+
+.al-telemetry-box {
+  background: rgba(17, 27, 41, 0.9);
+  border: 1px solid rgba(36, 54, 77, 0.7);
+  border-radius: 6px;
+  padding: 8px 12px;
+  text-align: right;
+  min-width: 140px;
+}
+
+.al-speed {
+  font-size: 26px;
+  font-weight: 800;
+  font-family: monospace;
+  color: #69C9F2;
+}
+
+.al-speed small {
+  font-size: 11px;
+  color: #A8B8CA;
+}
+
+.al-sprint-wrap {
+  margin-top: 4px;
+}
+
+.al-sprint-label {
+  font-size: 9px;
+  color: #A8B8CA;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.al-btn {
+  background: #69C9F2;
+  color: #06101c;
+  border: 0;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+.al-btn:hover {
+  filter: brightness(1.15);
+  transform: translateY(-1px);
+}
+
+.al-cam-btn {
+  background: #19273a;
+  color: #F2F5F8;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 6px;
+  padding: 3px 8px;
+  font-size: 11px;
+}
+
+/* ==================== MOBILE TOUCH CONTROLS ==================== */
+.al-mobile-controls {
+  position: absolute;
+  inset: 0;
+  z-index: 25;
+  pointer-events: none;
+  display: none;
+}
+
+.al-joystick-zone {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  width: 130px;
+  height: 130px;
+  pointer-events: auto;
+  touch-action: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.al-joystick-base {
+  width: 116px;
+  height: 116px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(17, 27, 41, 0.6) 0%, rgba(8, 13, 22, 0.85) 100%);
+  border: 2px solid rgba(105, 201, 242, 0.45);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.6), inset 0 0 16px rgba(105, 201, 242, 0.15);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.al-joystick-knob {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #8ee0ff 0%, #69C9F2 50%, #153c54 100%);
+  border: 2px solid #ffffff;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.7), 0 0 12px rgba(105, 201, 242, 0.6);
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  will-change: transform;
+  pointer-events: none;
+}
+
+.al-action-buttons {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  pointer-events: auto;
+  touch-action: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.al-btn-row {
+  display: flex;
+  gap: 10px;
+}
+
+.al-touch-btn {
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.6);
+  touch-action: none;
+  cursor: pointer;
+  outline: none;
+  transition: transform 0.1s ease, filter 0.15s;
+}
+
+.al-touch-btn:active, .al-touch-btn.active {
+  transform: scale(0.92);
+  filter: brightness(1.3);
+}
+
+.al-touch-sprint {
+  width: 58px;
+  height: 58px;
+  background: radial-gradient(circle at 35% 35%, #ff9d75 0%, #E47D54 60%, #993b1a 100%);
+  border-color: #ffbba1;
+}
+
+.al-touch-brake {
+  width: 46px;
+  height: 46px;
+  background: radial-gradient(circle at 35% 35%, #f87171 0%, #dc2626 60%, #7f1d1d 100%);
+  border-color: #fca5a5;
+}
+
+.al-touch-scan {
+  width: 48px;
+  height: 48px;
+  background: radial-gradient(circle at 35% 35%, #93c5fd 0%, #2563eb 60%, #1e3a8a 100%);
+  border-color: #bfdbfe;
+}
+
+.al-touch-reset, .al-touch-cam {
+  width: 38px;
+  height: 38px;
+  background: rgba(25, 39, 58, 0.9);
+  border-color: rgba(105, 201, 242, 0.4);
+}
+
+/* Responsive adjustments */
+@media (max-width: 900px), (pointer: coarse) {
+  .al-mobile-controls {
+    display: block;
+  }
+  .al-bl {
+    display: none !important;
+  }
+}
+
+/* Mobile Portrait */
+@media (max-width: 900px) and (orientation: portrait) {
+  .al-tl {
+    top: max(8px, env(safe-area-inset-top));
+    left: max(8px, env(safe-area-inset-left));
+    width: calc(100% - 136px);
+    max-width: 230px;
+    padding: 6px 10px;
+    font-size: 11px;
+    z-index: 12;
+  }
+  .al-tr {
+    top: max(8px, env(safe-area-inset-top));
+    right: max(8px, env(safe-area-inset-right));
+    width: 120px;
+    padding: 6px 10px;
+    z-index: 12;
+  }
+  .al-tc {
+    top: 66px;
+    left: max(8px, env(safe-area-inset-left));
+    transform: none;
+    font-size: 9.5px;
+    padding: 3px 8px;
+    border-radius: 10px;
+    z-index: 12;
+  }
+  .al-br {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    display: block !important;
+    pointer-events: none !important;
+    transform: none !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    z-index: 12 !important;
+  }
+  .al-radar-wrap {
+    position: absolute;
+    top: 64px;
+    right: max(8px, env(safe-area-inset-right));
+    width: 90px;
+    height: 90px;
+    pointer-events: auto;
+  }
+  .al-telemetry-box {
+    position: absolute;
+    top: 160px;
+    right: max(8px, env(safe-area-inset-right));
+    width: 120px;
+    padding: 6px 8px;
+    pointer-events: auto;
+    background: rgba(17, 27, 41, 0.9);
+    border: 1px solid rgba(36, 54, 77, 0.7);
+    border-radius: 8px;
+  }
+  .al-speed { font-size: 20px; }
+  .al-modal-card {
+    top: 100px;
+    bottom: auto;
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 146px);
+    max-width: 260px;
+    padding: 8px 12px;
+    font-size: 11px;
+    border-left: 3px solid #E47D54;
+    z-index: 25;
+  }
+  .al-card-title { font-size: 11px; }
+  .al-card-body { font-size: 10px; line-height: 1.35; margin-bottom: 6px; }
+  .al-card-close { padding: 3px 8px; font-size: 10px; }
+}
+
+/* Mobile Landscape (Ideal Rover Orientation) */
+@media (max-width: 950px) and (orientation: landscape), (max-height: 550px) and (orientation: landscape) {
+  .al-tl {
+    top: max(6px, env(safe-area-inset-top));
+    left: max(8px, env(safe-area-inset-left));
+    width: 200px;
+    padding: 4px 8px;
+    font-size: 10px;
+    z-index: 12;
+  }
+  .al-tc {
+    top: max(6px, env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 9.5px;
+    padding: 3px 10px;
+    border-radius: 10px;
+    z-index: 12;
+  }
+  .al-tr {
+    top: max(6px, env(safe-area-inset-top));
+    right: max(8px, env(safe-area-inset-right));
+    width: 120px;
+    padding: 4px 8px;
+    z-index: 12;
+  }
+  .al-br {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    display: block !important;
+    pointer-events: none !important;
+    transform: none !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    z-index: 12 !important;
+  }
+  .al-radar-wrap {
+    position: absolute;
+    top: 46px;
+    right: max(8px, env(safe-area-inset-right));
+    width: 78px;
+    height: 78px;
+    pointer-events: auto;
+  }
+  /* Telemetry dashboard at bottom center — separated from controls */
+  .al-telemetry-box {
+    position: absolute;
+    bottom: max(6px, env(safe-area-inset-bottom));
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 4px 10px !important;
+    border-radius: 16px;
+    background: rgba(11, 19, 31, 0.92);
+    border: 1px solid rgba(105, 201, 242, 0.35);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.7);
+    pointer-events: auto;
+    width: auto !important;
+    z-index: 14;
+  }
+  .al-speed { font-size: 16px; margin-bottom: 0; }
+  .al-sprint-wrap { width: 80px; }
+  .al-sprint-label { font-size: 7px; }
+  .al-modal-card {
+    top: 48px;
+    bottom: auto;
+    left: max(8px, env(safe-area-inset-left));
+    transform: none;
+    max-width: 230px;
+    padding: 6px 9px;
+    font-size: 10px;
+    border-left: 3px solid #E47D54;
+    z-index: 25;
+  }
+  .al-card-title { font-size: 10px; }
+  .al-card-body { font-size: 9.5px; line-height: 1.3; margin-bottom: 5px; }
+  .al-card-close { padding: 2px 6px; font-size: 9.5px; }
+}
+
+/* Educational Card Modal */
+.al-modal-card {
+  position: absolute;
+  left: 50%;
+  bottom: 25px;
+  transform: translateX(-50%);
+  z-index: 30;
+  background: rgba(17, 27, 41, 0.95);
+  border: 1px solid #E47D54;
+  border-left: 5px solid #E47D54;
+  border-radius: 8px;
+  padding: 14px 18px;
+  max-width: 480px;
+  width: 90%;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.7);
+  animation: alSlideUp 0.3s ease;
+}
+
+@keyframes alSlideUp {
+  from { transform: translate(-50%, 20px); opacity: 0; }
+  to { transform: translate(-50%, 0); opacity: 1; }
+}
+
+.al-card-title {
+  color: #E47D54;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.al-card-body {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #F2F5F8;
+  margin-bottom: 10px;
+}
+
+.al-card-close {
+  background: #19273a;
+  color: #69C9F2;
+  border: 1px solid #69C9F2;
+  padding: 4px 12px;
+  font-size: 11px;
+}
+
+/* Dialog Overlay */
+.al-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  background: rgba(8, 13, 22, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  backdrop-filter: blur(6px);
+}
+
+.al-dialog {
+  background: #111B29;
+  border: 1px solid #69C9F2;
+  border-radius: 8px;
+  padding: 24px;
+  max-width: 480px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.8);
+}
+
+.al-dialog h2 {
+  color: #69C9F2;
+  font-size: 20px;
+  margin-top: 0;
+}
+
+.al-dialog p {
+  color: #A8B8CA;
+  line-height: 1.6;
+  margin: 12px 0 20px;
+}

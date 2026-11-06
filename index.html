@@ -1,0 +1,4828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚀</text></svg>">
+<meta charset="utf-8">
+<title>AFTERLIGHT — Mars & Moon Rover | Interactive Planetary Exploration</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<style>
+:root {
+  --bg: #080D16;
+  --pn: #111B29;
+  --cy: #69C9F2;
+  --mr: #E47D54;
+  --tx: #F2F5F8;
+  --t2: #A8B8CA;
+  --border: rgba(36, 54, 77, 0.7);
+  --accent-glow: rgba(105, 201, 242, 0.25);
+  box-sizing: border-box;
+}
+*, *:before, *:after { box-sizing: inherit; }
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--tx);
+  font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", monospace, sans-serif;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+canvas#c {
+  display: block;
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  touch-action: none;
+}
+
+/* Glassmorphism panels */
+.p {
+  background: rgba(17, 27, 41, 0.88);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.h {
+  position: fixed;
+  z-index: 10;
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.h b {
+  color: var(--cy);
+  letter-spacing: 0.14em;
+  font-size: 10px;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 3px;
+}
+
+/* HUD layout */
+#tl {
+  left: 14px;
+  top: max(14px, env(safe-area-inset-top));
+  width: min(340px, 46vw);
+}
+#tr {
+  right: 14px;
+  top: max(14px, env(safe-area-inset-top));
+  text-align: right;
+  width: min(230px, 42vw);
+  pointer-events: auto;
+}
+#bl {
+  left: 14px;
+  bottom: max(14px, env(safe-area-inset-bottom));
+  width: min(340px, 46vw);
+  pointer-events: auto;
+}
+#br {
+  right: 14px;
+  bottom: max(14px, env(safe-area-inset-bottom));
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  pointer-events: auto;
+}
+#tc {
+  left: 50%;
+  top: max(14px, env(safe-area-inset-top));
+  transform: translateX(-50%);
+  padding: 6px 16px;
+  font-size: 12px;
+  text-align: center;
+  min-width: 170px;
+  letter-spacing: 0.05em;
+  font-family: monospace;
+}
+
+/* Telemetry bars */
+.bar {
+  height: 5px;
+  background: #172436;
+  border-radius: 3px;
+  margin: 6px 0;
+  overflow: hidden;
+  position: relative;
+}
+.bar i {
+  display: block;
+  height: 100%;
+  background: var(--cy);
+  width: 0%;
+  border-radius: 3px;
+  transition: width 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.3s;
+}
+#hp i { background: linear-gradient(90deg, #e4472f, var(--mr)); }
+#sprint-bar i { background: linear-gradient(90deg, var(--cy), #8ee0ff); }
+#obj {
+  color: var(--tx);
+  font-weight: 600;
+  margin: 4px 0 6px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+#spd-box {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 6px;
+}
+#spd {
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--cy);
+  font-family: monospace;
+  line-height: 1;
+  text-shadow: 0 0 16px rgba(105, 201, 242, 0.4);
+}
+#sprint-status {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(23, 36, 54, 0.8);
+  color: var(--t2);
+  display: inline-block;
+  margin-top: 4px;
+  transition: all 0.2s;
+}
+#sprint-status.active {
+  background: var(--mr);
+  color: #fff;
+  box-shadow: 0 0 10px rgba(228, 125, 84, 0.6);
+  animation: pulse-sprint 0.8s infinite alternate;
+}
+@keyframes pulse-sprint {
+  from { opacity: 0.85; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1.02); }
+}
+
+/* Minimap container */
+#minimap-wrap {
+  width: 154px;
+  height: 154px;
+  padding: 6px;
+  border-radius: 50%;
+  position: relative;
+  background: rgba(11, 19, 31, 0.94);
+  border: 1.5px solid rgba(105, 201, 242, 0.45);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.7), inset 0 0 14px rgba(105, 201, 242, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#minimap-cv {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  display: block;
+}
+#minimap-tag {
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #080D16;
+  border: 1px solid var(--cy);
+  border-radius: 10px;
+  font-size: 8px;
+  padding: 1px 6px;
+  color: var(--cy);
+  font-family: monospace;
+  letter-spacing: 0.1em;
+}
+
+/* Buttons */
+button {
+  background: var(--cy);
+  color: #06101c;
+  border: 0;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  transition: all 0.2s ease;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+button:hover {
+  filter: brightness(1.15);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(105, 201, 242, 0.35);
+}
+button:active {
+  transform: translateY(0);
+}
+button.s {
+  background: #19273a;
+  color: var(--tx);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+button.s:hover {
+  background: #22354e;
+  border-color: var(--cy);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* Overlays / Menus */
+.ov {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at center, rgba(17, 27, 41, 0.94), rgba(8, 13, 22, 0.98));
+  padding: 20px;
+  overflow-y: auto;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.ov.on { display: flex; animation: fadeIn 0.25s ease forwards; }
+@keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+
+.box {
+  max-width: 590px;
+  width: 100%;
+  border: 1px solid rgba(105, 201, 242, 0.25);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8), 0 0 30px rgba(105, 201, 242, 0.1);
+}
+h1 {
+  margin: 0 0 6px;
+  font-size: clamp(22px, 5vw, 32px);
+  letter-spacing: 0.12em;
+  font-weight: 800;
+  color: var(--tx);
+}
+h1 span { color: var(--mr); text-shadow: 0 0 14px rgba(228, 125, 84, 0.4); }
+.row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 14px 0;
+}
+.ms {
+  flex: 1 1 130px;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+}
+.ms.lock { opacity: 0.35; cursor: not-allowed; filter: grayscale(1); }
+.ms.sel {
+  outline: 2px solid var(--mr);
+  border-color: var(--mr);
+  background: rgba(228, 125, 84, 0.15);
+}
+p {
+  color: var(--t2);
+  line-height: 1.6;
+  margin: 8px 0;
+}
+kbd {
+  background: #1a2a3f;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  padding: 2px 6px;
+  color: var(--cy);
+  font-family: monospace;
+  font-size: 11px;
+  box-shadow: 0 2px 0 rgba(0,0,0,0.4);
+}
+
+/* Educational Card */
+#card {
+  position: fixed;
+  z-index: 20;
+  left: 50%;
+  bottom: 85px;
+  transform: translateX(-50%);
+  max-width: min(440px, 90vw);
+  display: none;
+  border-left: 4px solid var(--mr);
+  animation: slideUp 0.3s ease;
+  cursor: pointer;
+}
+#telemetry-box {
+  min-width: 180px;
+  text-align: right;
+}
+#torque-wrap {
+  margin-top: 4px;
+}
+#torque-hdr {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--t2);
+  font-family: monospace;
+}
+@keyframes slideUp { from { transform: translate(-50%, 20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+
+/* Screen Flash for damage / success */
+#flash {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s ease-out;
+}
+
+/* Destination & Operation Mode buttons */
+.mode.sel {
+  outline: 2px solid var(--cy);
+  border-color: var(--cy);
+  background: rgba(105, 201, 242, 0.18);
+  color: #fff;
+}
+.op-mode.sel {
+  outline: 2px solid var(--mr);
+  border-color: var(--mr);
+  background: rgba(228, 125, 84, 0.22);
+  color: #fff;
+  font-weight: 700;
+}
+
+/* Ingenuity Downward Navigation Camera (NAV-CAM) HUD Overlay */
+#navcam-hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+.navcam-crosshair {
+  position: absolute;
+  width: 150px;
+  height: 150px;
+  border: 1px dashed rgba(105, 201, 242, 0.55);
+  border-radius: 50%;
+  box-shadow: 0 0 18px rgba(105, 201, 242, 0.2);
+}
+.navcam-crosshair::before, .navcam-crosshair::after {
+  content: '';
+  position: absolute;
+  background: rgba(105, 201, 242, 0.7);
+}
+.navcam-crosshair::before {
+  top: 50%;
+  left: -24px;
+  right: -24px;
+  height: 1px;
+}
+.navcam-crosshair::after {
+  left: 50%;
+  top: -24px;
+  bottom: -24px;
+  width: 1px;
+}
+.navcam-center-dot {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--mr);
+  box-shadow: 0 0 10px var(--mr);
+}
+.navcam-alt-tape {
+  position: absolute;
+  left: 50%;
+  top: 66%;
+  transform: translateX(-50%);
+  background: rgba(8, 13, 22, 0.88);
+  border: 1px solid var(--cy);
+  border-radius: 6px;
+  padding: 4px 12px;
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--cy);
+  text-align: center;
+  letter-spacing: 0.1em;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+}
+
+/* Vignette and subtle scanlines */
+.vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.7);
+}
+
+/* Apollo Hasselblad Reseau Fiducial Grid Overlay */
+#hasselblad-grid {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  display: none;
+  opacity: 0.35;
+}
+#hasselblad-grid svg {
+  width: 100%;
+  height: 100%;
+}
+
+.cam-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ====================================================================
+   MOBILE TOUCH CONTROLS & RESPONSIVE LAYOUT
+   ==================================================================== */
+#mobile-controls {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  pointer-events: none;
+  display: none;
+}
+
+/* Virtual Joystick Zone (Bottom-Left) */
+#touch-joystick-zone {
+  position: absolute;
+  left: max(16px, env(safe-area-inset-left));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  width: 140px;
+  height: 140px;
+  pointer-events: auto;
+  touch-action: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#joystick-base {
+  width: 124px;
+  height: 124px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(17, 27, 41, 0.6) 0%, rgba(8, 13, 22, 0.85) 100%);
+  border: 2px solid rgba(105, 201, 242, 0.45);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.6), inset 0 0 18px rgba(105, 201, 242, 0.15);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.joy-arrow {
+  position: absolute;
+  font-size: 10px;
+  color: rgba(105, 201, 242, 0.5);
+  pointer-events: none;
+  font-weight: 700;
+}
+.joy-up { top: 6px; }
+.joy-down { bottom: 6px; }
+.joy-left { left: 8px; }
+.joy-right { right: 8px; }
+
+#joystick-knob {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #8ee0ff 0%, #69C9F2 50%, #153c54 100%);
+  border: 2px solid #ffffff;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.7), 0 0 14px rgba(105, 201, 242, 0.6);
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  will-change: transform;
+  pointer-events: none;
+  transition: box-shadow 0.2s;
+}
+
+/* Mobile Action Buttons (Bottom-Right) */
+#mobile-action-buttons {
+  position: absolute;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  pointer-events: auto;
+  touch-action: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.m-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.m-btn {
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.6);
+  touch-action: none;
+  padding: 0;
+  cursor: pointer;
+  outline: none;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: transform 0.1s ease, filter 0.15s, background-color 0.15s;
+}
+.m-btn:active, .m-btn.active {
+  transform: scale(0.92);
+  filter: brightness(1.3);
+}
+
+.m-icon {
+  font-size: 16px;
+  line-height: 1;
+  pointer-events: none;
+}
+.m-lbl {
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin-top: 2px;
+  font-family: monospace;
+  pointer-events: none;
+}
+
+/* Sprint Button (Big & Vibrant) */
+.m-btn-sprint {
+  width: 62px;
+  height: 62px;
+  background: radial-gradient(circle at 35% 35%, #ff9d75 0%, var(--mr) 60%, #993b1a 100%);
+  border-color: #ffbba1;
+  box-shadow: 0 6px 20px rgba(228, 125, 84, 0.5), inset 0 0 10px rgba(255, 255, 255, 0.4);
+}
+.m-btn-sprint.active {
+  box-shadow: 0 0 25px rgba(228, 125, 84, 0.9), inset 0 0 15px #fff;
+  animation: pulse-sprint 0.4s infinite alternate;
+}
+
+/* Brake Button */
+.m-btn-brake {
+  width: 50px;
+  height: 50px;
+  background: radial-gradient(circle at 35% 35%, #f87171 0%, #dc2626 60%, #7f1d1d 100%);
+  border-color: #fca5a5;
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.4);
+}
+
+/* Scan / Inspect Button */
+.m-btn-scan {
+  width: 54px;
+  height: 54px;
+  background: radial-gradient(circle at 35% 35%, #93c5fd 0%, #2563eb 60%, #1e3a8a 100%);
+  border-color: #bfdbfe;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.4);
+}
+.m-btn-scan.pulse {
+  animation: pulse-scan 0.8s infinite alternate;
+}
+@keyframes pulse-scan {
+  from { box-shadow: 0 0 12px rgba(105, 201, 242, 0.5); transform: scale(1); }
+  to { box-shadow: 0 0 26px rgba(105, 201, 242, 0.95); transform: scale(1.08); }
+}
+
+/* Reset and Cam Mini Buttons */
+.m-btn-reset, .m-btn-cam {
+  width: 40px;
+  height: 40px;
+  background: rgba(25, 39, 58, 0.9);
+  border-color: rgba(105, 201, 242, 0.4);
+}
+
+/* Mobile Responsive Adjustments */
+@media (max-width: 900px), (pointer: coarse) {
+  #mobile-controls {
+    display: block;
+  }
+  #bl {
+    display: none !important;
+  }
+  #tr .cam-btn {
+    display: none !important;
+  }
+}
+
+/* ====================================================================
+   MOBILE PORTRAIT (Phone held upright)
+   ==================================================================== */
+@media (max-width: 900px) and (orientation: portrait) {
+  #tl {
+    top: max(8px, env(safe-area-inset-top));
+    left: max(8px, env(safe-area-inset-left));
+    width: calc(100% - 136px);
+    max-width: 230px;
+    padding: 6px 10px;
+    z-index: 12;
+  }
+  #tl b { font-size: 9px; }
+  #obj { font-size: 11.5px; margin: 2px 0 4px; line-height: 1.3; }
+  #ps { font-size: 9.5px; }
+
+  #tr {
+    top: max(8px, env(safe-area-inset-top));
+    right: max(8px, env(safe-area-inset-right));
+    width: 120px;
+    padding: 6px 10px;
+    text-align: right;
+    z-index: 12;
+  }
+  #tr b { font-size: 8.5px; }
+  #st { font-size: 10px; }
+  #pb { padding: 3px 8px; font-size: 10px; }
+
+  /* Compass Badge: Docked under Mission to prevent collision with #tl */
+  #tc {
+    top: 66px;
+    left: max(8px, env(safe-area-inset-left));
+    transform: none;
+    font-size: 9.5px;
+    padding: 3px 8px;
+    min-width: auto;
+    border-radius: 10px;
+    z-index: 12;
+  }
+
+  /* Break #br so minimap and telemetry box can be positioned cleanly */
+  #br {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    display: block !important;
+    pointer-events: none !important;
+    transform: none !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    z-index: 12 !important;
+  }
+
+  /* Minimap: Docked under Status on the right */
+  #minimap-wrap {
+    position: absolute;
+    top: 64px;
+    right: max(8px, env(safe-area-inset-right));
+    width: 90px;
+    height: 90px;
+    padding: 4px;
+    pointer-events: auto;
+  }
+  #minimap-cv {
+    width: 82px;
+    height: 82px;
+  }
+  #minimap-tag {
+    font-size: 7px;
+    bottom: -3px;
+    padding: 0 4px;
+  }
+
+  /* Telemetry Box: Docked under Minimap on the right (clear of bottom buttons) */
+  #telemetry-box {
+    position: absolute;
+    top: 160px;
+    right: max(8px, env(safe-area-inset-right));
+    width: 120px;
+    min-width: unset;
+    padding: 6px 8px;
+    text-align: right;
+    pointer-events: auto;
+  }
+  #spd { font-size: 22px; }
+  #spd-unit { font-size: 9px; }
+  #torque-wrap { margin-top: 2px; }
+  #torque-hdr { font-size: 8px; }
+  #torque-lbl { font-size: 7.5px; }
+  #sprint-pct { font-size: 8px; }
+  #sprint-bar { height: 3px; margin: 2px 0; }
+  #sprint-status { font-size: 8px; padding: 1px 4px; margin-top: 2px; }
+
+  /* Educational Fact Card: Compact, placed high in the sky to never block the rover */
+  #card {
+    top: 100px;
+    bottom: auto;
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 146px);
+    max-width: 260px;
+    padding: 7px 10px;
+    font-size: 11px;
+    border-left: 3px solid var(--mr);
+    z-index: 22;
+  }
+  #ct { font-size: 11px; }
+  #cb { font-size: 10px; line-height: 1.35; margin: 3px 0 0; }
+
+  /* Virtual Joystick */
+  #touch-joystick-zone {
+    left: max(12px, env(safe-area-inset-left));
+    bottom: max(16px, env(safe-area-inset-bottom));
+    width: 120px;
+    height: 120px;
+  }
+  #joystick-base { width: 110px; height: 110px; }
+  #joystick-knob { width: 46px; height: 46px; }
+
+  /* Mobile Action Buttons */
+  #mobile-action-buttons {
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(16px, env(safe-area-inset-bottom));
+    gap: 8px;
+  }
+  .m-row { gap: 8px; }
+  .m-btn-sprint { width: 56px; height: 56px; }
+  .m-btn-brake { width: 46px; height: 46px; }
+  .m-btn-scan { width: 48px; height: 48px; }
+  .m-btn-reset, .m-btn-cam { width: 36px; height: 36px; }
+}
+
+/* ====================================================================
+   MOBILE LANDSCAPE (Phone held sideways — Ideal Rover Experience)
+   ==================================================================== */
+@media (max-width: 950px) and (orientation: landscape), (max-height: 550px) and (orientation: landscape) {
+  #tl {
+    top: max(6px, env(safe-area-inset-top));
+    left: max(8px, env(safe-area-inset-left));
+    width: 200px;
+    padding: 4px 8px;
+    z-index: 12;
+  }
+  #tl b { font-size: 8.5px; }
+  #obj { font-size: 10.5px; margin: 1px 0 3px; line-height: 1.25; }
+  #ps { font-size: 9px; }
+
+  /* Compass Badge: Centered in upper horizon */
+  #tc {
+    top: max(6px, env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 9.5px;
+    padding: 3px 10px;
+    min-width: auto;
+    border-radius: 10px;
+    z-index: 12;
+  }
+
+  #tr {
+    top: max(6px, env(safe-area-inset-top));
+    right: max(8px, env(safe-area-inset-right));
+    width: 120px;
+    padding: 4px 8px;
+    text-align: right;
+    z-index: 12;
+  }
+  #tr b { font-size: 8px; }
+  #st { font-size: 9.5px; margin-bottom: 2px; }
+  #hp { height: 3px; margin: 2px 0; }
+  #pb { padding: 2px 6px; font-size: 9.5px; }
+
+  /* Break #br so Minimap is top-right and Telemetry is bottom-center */
+  #br {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    display: block !important;
+    pointer-events: none !important;
+    transform: none !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    z-index: 12 !important;
+  }
+
+  /* Minimap: Compact top-right underneath #tr */
+  #minimap-wrap {
+    position: absolute;
+    top: 46px;
+    right: max(8px, env(safe-area-inset-right));
+    width: 78px;
+    height: 78px;
+    padding: 3px;
+    pointer-events: auto;
+  }
+  #minimap-cv {
+    width: 72px;
+    height: 72px;
+  }
+  #minimap-tag {
+    font-size: 6px;
+    bottom: -3px;
+    padding: 0 3px;
+  }
+
+  /* TELEMETRY DASHBOARD: Placed in BOTTOM-CENTER
+     Completely separate from bottom-right controls!
+     Controls never overlap sprint counter or torque! */
+  #telemetry-box {
+    position: absolute;
+    bottom: max(6px, env(safe-area-inset-bottom));
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 4px 10px !important;
+    border-radius: 16px;
+    background: rgba(11, 19, 31, 0.92);
+    border: 1px solid rgba(105, 201, 242, 0.35);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.7);
+    pointer-events: auto;
+    min-width: unset !important;
+    width: auto !important;
+    z-index: 14;
+  }
+  #spd-box {
+    display: flex;
+    align-items: baseline;
+    gap: 2px;
+  }
+  #spd { font-size: 17px; font-weight: 800; line-height: 1; }
+  #spd-unit { font-size: 8.5px; }
+  #torque-wrap {
+    display: flex;
+    flex-direction: column;
+    width: 80px;
+    margin: 0 !important;
+  }
+  #torque-hdr { font-size: 7.5px !important; }
+  #torque-lbl { font-size: 7px; }
+  #sprint-pct { font-size: 7.5px; }
+  #sprint-bar { height: 3px; margin: 1px 0 0; }
+  #sprint-status {
+    font-size: 8px;
+    padding: 2px 6px;
+    margin: 0 !important;
+    white-space: nowrap;
+  }
+
+  /* Educational Fact Card: Positioned safely at upper-left under Mission info,
+     never in the middle covering the rover! */
+  #card {
+    top: 48px;
+    bottom: auto;
+    left: max(8px, env(safe-area-inset-left));
+    transform: none;
+    max-width: 230px;
+    padding: 5px 8px;
+    font-size: 10px;
+    border-left: 3px solid var(--mr);
+    z-index: 22;
+  }
+  #ct { font-size: 10px; }
+  #cb { font-size: 9.5px; line-height: 1.3; margin: 2px 0 0; }
+
+  /* Virtual Joystick: Left thumb */
+  #touch-joystick-zone {
+    left: max(12px, env(safe-area-inset-left));
+    bottom: max(6px, env(safe-area-inset-bottom));
+    width: 105px;
+    height: 105px;
+  }
+  #joystick-base { width: 96px; height: 96px; }
+  #joystick-knob { width: 40px; height: 40px; }
+
+  /* Mobile Action Buttons: Right thumb, clean and completely unobstructed */
+  #mobile-action-buttons {
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(6px, env(safe-area-inset-bottom));
+    gap: 5px;
+  }
+  .m-row { gap: 5px; }
+  .m-btn-sprint { width: 50px; height: 50px; }
+  .m-btn-brake { width: 40px; height: 40px; }
+  .m-btn-scan { width: 42px; height: 42px; }
+  .m-btn-reset, .m-btn-cam { width: 32px; height: 32px; }
+  .m-icon { font-size: 13px; }
+  .m-lbl { font-size: 7px; margin-top: 1px; }
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="vignette"></div>
+<div id="hasselblad-grid">
+  <svg xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <g id="cross"><path d="M-6,0 L6,0 M0,-6 L0,6" stroke="#ffffff" stroke-width="1.2" stroke-linecap="square"/></g>
+      <g id="cross-center"><path d="M-9,0 L9,0 M0,-9 L0,9" stroke="#ffffff" stroke-width="1.6" stroke-linecap="square"/></g>
+    </defs>
+    <use href="#cross" x="25%" y="25%"/>
+    <use href="#cross" x="50%" y="25%"/>
+    <use href="#cross" x="75%" y="25%"/>
+    <use href="#cross" x="25%" y="50%"/>
+    <use href="#cross-center" x="50%" y="50%"/>
+    <use href="#cross" x="75%" y="50%"/>
+    <use href="#cross" x="25%" y="75%"/>
+    <use href="#cross" x="50%" y="75%"/>
+    <use href="#cross" x="75%" y="75%"/>
+  </svg>
+</div>
+
+<!-- Ingenuity Downward Navigation Camera (NAV-CAM) HUD Overlay -->
+<div id="navcam-hud">
+  <div class="navcam-crosshair"></div>
+  <div class="navcam-center-dot"></div>
+  <div class="navcam-alt-tape">
+    <div id="nc-alt">ALT: 0.0 m</div>
+    <div id="nc-vs" style="font-size:9.5px; color:var(--t2);">V/S: 0.0 m/s</div>
+  </div>
+</div>
+<div id="flash"></div>
+
+<!-- Mobile Touch On-Screen Controls -->
+<div id="mobile-controls">
+  <!-- Virtual Analog Joystick (Bottom-Left) -->
+  <div id="touch-joystick-zone">
+    <div id="joystick-base">
+      <div class="joy-arrow joy-up">▲</div>
+      <div class="joy-arrow joy-down">▼</div>
+      <div class="joy-arrow joy-left">◀</div>
+      <div class="joy-arrow joy-right">▶</div>
+      <div id="joystick-knob"></div>
+    </div>
+  </div>
+
+  <!-- Action Touch Buttons (Bottom-Right) -->
+  <div id="mobile-action-buttons">
+    <button class="m-btn m-btn-scan" id="mb-scan" title="Deploy APXS Spectrometer">
+      <span class="m-icon">🔬</span>
+      <span class="m-lbl">SCAN</span>
+    </button>
+    <div class="m-row">
+      <button class="m-btn m-btn-reset" id="mb-reset" title="Recover Rover Upright">
+        <span class="m-icon">↺</span>
+        <span class="m-lbl">RESET</span>
+      </button>
+      <button class="m-btn m-btn-cam" id="mb-cam" title="Toggle Camera View">
+        <span class="m-icon">📷</span>
+        <span class="m-lbl">CAM</span>
+      </button>
+    </div>
+    <div class="m-row">
+      <button class="m-btn m-btn-brake" id="mb-brake" title="Handbrake">
+        <span class="m-icon">🛑</span>
+        <span class="m-lbl">BRAKE</span>
+      </button>
+      <button class="m-btn m-btn-sprint" id="mb-sprint" title="Overdrive Sprint (2x Speed)">
+        <span class="m-icon">⚡</span>
+        <span class="m-lbl">SPRINT</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Top Left: Mission Objectives -->
+<div class="h p" id="tl">
+  <b id="mn">MISSION 01</b>
+  <div id="obj">Initializing Rover Telemetry...</div>
+  <div class="bar"><i id="pg"></i></div>
+  <div style="color:var(--t2); font-size:11px; font-family:monospace;" id="ps">Objective 1/5</div>
+</div>
+
+<!-- Top Center: Compass & Target Bearing -->
+<div class="h p" id="tc">
+  <span id="comp" style="color:var(--cy); font-weight:bold;">N 0°</span> · 
+  <span id="dist" style="color:var(--mr);">TARGET 0m</span>
+</div>
+
+<!-- Top Right: Rover Status & Pause -->
+<div class="h p" id="tr">
+  <b>ROVER STATUS</b>
+  <div id="st" style="font-weight:700; font-size:12px; margin-bottom:4px; color:#4ade80;">SYSTEM NOMINAL</div>
+  <div class="bar" id="hp" title="Chassis Integrity"><i style="width:100%"></i></div>
+  <div style="display:flex; gap:6px; justify-content:flex-end; margin-top:8px;">
+    <button class="s cam-btn" id="cb-view" title="Toggle Camera View">📷 <span id="cam-name">ORBIT</span></button>
+    <button class="s" id="pb" style="padding:4px 10px;">❚❚ Pause</button>
+  </div>
+</div>
+
+<!-- Bottom Right: Speedometer, Sprint / Overdrive, Minimap -->
+<div class="h" id="br">
+  <div id="minimap-wrap">
+    <canvas id="minimap-cv" width="280" height="280"></canvas>
+    <div id="minimap-tag">RADAR 80m</div>
+  </div>
+  <div class="p" id="telemetry-box">
+    <div id="spd-box">
+      <div id="spd">0.0</div>
+      <div id="spd-unit" style="color:var(--t2); font-size:11px;">cm/s</div>
+    </div>
+    <div id="torque-wrap">
+      <div id="torque-hdr">
+        <span id="torque-lbl">MOTOR TORQUE</span>
+        <span id="sprint-pct">100%</span>
+      </div>
+      <div class="bar" id="sprint-bar" title="Thermal & Power Reserve for Sprint"><i style="width:100%"></i></div>
+    </div>
+    <div id="sprint-status">SPRINT: READY (SHIFT)</div>
+  </div>
+</div>
+
+<!-- Bottom Left: Desktop Controls Guide (Hidden on mobile) -->
+<div class="h p" id="bl" style="font-size:11px; color:var(--t2);">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+    <b style="margin:0;" id="ctl-title">TACTICAL CONTROLS</b>
+    <button class="s" id="tg" style="padding:2px 8px; font-size:10px;">hide</button>
+  </div>
+  <div id="cg" style="line-height:1.6;">
+    <div id="rover-ctl-guide">
+      <kbd>W</kbd><kbd>S</kbd> drive / reverse · <kbd>A</kbd><kbd>D</kbd> steer · <kbd>Space</kbd> brake<br>
+      <kbd>Shift</kbd> <b>OVERDRIVE SPRINT (2x SPEED)</b><br>
+      <kbd>E</kbd> inspect target · <kbd>R</kbd> reset upright · <kbd>C</kbd> cycle camera<br>
+      <span style="color:var(--cy)">Drag mouse</span> to orbit view · <span style="color:var(--cy)">Scroll</span> to zoom
+    </div>
+    <div id="heli-ctl-guide" style="display:none;">
+      <kbd>W</kbd><kbd>S</kbd> pitch forward / back · <kbd>A</kbd><kbd>D</kbd> roll / strafe<br>
+      <kbd>Space</kbd> <b>CLIMB</b> · <kbd>Ctrl</kbd> <b>DESCEND</b> · <kbd>Q</kbd><kbd>E</kbd> yaw turn<br>
+      <kbd>Shift</kbd> fast flight · <kbd>X</kbd> auto-hover · <kbd>E</kbd> cargo latch / drop<br>
+      <kbd>C</kbd> cycle camera (Follow / Mast / NAV-CAM) · <kbd>R</kbd> reset to helipad
+    </div>
+  </div>
+</div>
+
+<!-- Educational Fact Card -->
+<div id="card" class="p" title="Tap or click ✕ to dismiss">
+  <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+    <b style="color:var(--mr); font-size:11.5px; margin:0;" id="ct">GEOLOGICAL REPORT</b>
+    <button id="card-close" style="background:transparent; border:none; color:var(--t2); font-size:14px; padding:0 4px; line-height:1; cursor:pointer;" title="Dismiss card">✕</button>
+  </div>
+  <p id="cb" style="color:var(--tx); margin:4px 0 0; font-size:11px; line-height:1.4;"></p>
+</div>
+
+<!-- Main Menu Overlay -->
+<div class="ov on" id="menu">
+  <div class="p box">
+    <h1 id="menu-title">AFTERLIGHT <span>— PLANETARY EXPLORER</span></h1>
+    <p id="menu-desc">Take the helm of NASA planetary exploration missions. Traverse rugged Martian terrain in Ares Vallis with the Sojourner rover, explore Apollo landing sites on the Moon, or command NASA's <b>Ingenuity Mars Helicopter</b> on high-altitude flight operations and base cargo deliveries.</p>
+    
+    <b style="color:var(--cy); font-size:11px; letter-spacing:.12em; margin-top:14px;">MISSION OPERATION MODE</b>
+    <div class="row">
+      <button class="s op-mode sel" data-mode="rover">🚜 SOJOURNER ROVER (Surface)</button>
+      <button class="s op-mode" data-mode="heli">🚁 INGENUITY HELICOPTER (Flight Ops)</button>
+    </div>
+
+    <div id="rover-dest-row">
+      <b style="color:var(--cy); font-size:11px; letter-spacing:.12em; margin-top:14px;">EXPLORATION DESTINATION</b>
+      <div class="row">
+        <button class="s mode sel" data-w="mars">🔴 MARS · Ares Vallis</button>
+        <button class="s mode" data-w="moon">🌑 MOON · Oceanus Procellarum (Apollo Heritage)</button>
+      </div>
+    </div>
+    
+    <b style="color:var(--cy); font-size:11px; letter-spacing:.12em; margin-top:14px;" id="ml-hdr">MISSION SELECT</b>
+    <div class="row" id="ml"></div>
+    
+    <div class="row" style="margin-top:18px;">
+      <button id="go" style="padding:10px 24px; font-size:14px;">🚀 LAUNCH ROVER</button>
+      <button class="s" id="cs">Controls &amp; Audio</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Overlay -->
+<div class="ov" id="set">
+  <div class="p box">
+    <h1 style="font-size:22px;">CONTROLS &amp; AUDIO</h1>
+    <b style="color:var(--cy); font-size:11px; display:block; margin-bottom:4px;">🚜 ROVER CONTROLS</b>
+    <p style="margin:2px 0;"><kbd>W</kbd>/<kbd>↑</kbd> Forward · <kbd>S</kbd>/<kbd>↓</kbd> Reverse · <kbd>A</kbd><kbd>D</kbd>/<kbd>←</kbd><kbd>→</kbd> Turn · <kbd>Space</kbd> Handbrake</p>
+    <p style="margin:2px 0;"><kbd>Shift</kbd> <b>Solar Overdrive Sprint</b> · <kbd>E</kbd> APXS Spectrometer · <kbd>R</kbd> Unstuck Recovery · <kbd>C</kbd> Camera</p>
+    
+    <b style="color:var(--mr); font-size:11px; display:block; margin:10px 0 4px;">🚁 INGENUITY HELICOPTER CONTROLS</b>
+    <p style="margin:2px 0;"><kbd>W</kbd>/<kbd>S</kbd> Pitch Tilt (Fwd/Back) · <kbd>A</kbd><kbd>D</kbd> Roll Tilt (Left/Right) · <kbd>Q</kbd><kbd>E</kbd> Rotate Heading (Yaw)</p>
+    <p style="margin:2px 0;"><kbd>Space</kbd> Climb (Collective Up) · <kbd>Left Ctrl</kbd>/<kbd>Down</kbd> Descend · <kbd>Shift</kbd> High-Speed Rotor Boost</p>
+    <p style="margin:2px 0;"><kbd>X</kbd> <b>Auto-Hover / Stabilize Mode</b> · <kbd>E</kbd> <b>Attach / Release Scientific Cargo</b> · <kbd>C</kbd> Camera (Chase / Mast / Downward NAV-CAM)</p>
+    <div style="margin:16px 0; background:rgba(0,0,0,0.3); padding:12px; border-radius:6px;">
+      <label style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+        <span>Master Volume:</span>
+        <input type="range" id="vol" min="0" max="1" step=".05" value=".6" style="width:160px; accent-color:var(--cy);">
+      </label>
+      <label style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+        <input type="checkbox" id="mute" style="accent-color:var(--cy);">
+        <span>Mute All Audio</span>
+      </label>
+      <label style="display:flex; align-items:center; gap:8px;">
+        <input type="checkbox" id="toggle-touch-controls" style="accent-color:var(--cy);">
+        <span>Always Show On-Screen Mobile Controls</span>
+      </label>
+    </div>
+    <div class="row"><button id="sb">Save &amp; Return</button></div>
+  </div>
+</div>
+
+<!-- Pause Overlay -->
+<div class="ov" id="pause">
+  <div class="p box">
+    <h1 style="font-size:24px;">SIMULATION <span>PAUSED</span></h1>
+    <p>Telemetry stream temporarily suspended. Select an action below.</p>
+    <div class="row">
+      <button id="rs">▶ Resume Exploration</button>
+      <button class="s" id="rt">↺ Restart Mission</button>
+      <button class="s" id="mm">⌂ Main Menu</button>
+    </div>
+  </div>
+</div>
+
+<!-- Science Inspection Modal -->
+<div class="ov" id="insp">
+  <div class="p box">
+    <b style="color:var(--mr); font-size:14px;" id="it">TARGET ROCK INSPECTION</b>
+    <p id="ib" style="color:var(--tx); margin:8px 0; font-size:13px;"></p>
+    <div style="background:#09121f; border:1px solid #1c2e44; border-radius:6px; padding:10px; margin:10px 0;">
+      <div style="font-size:10px; color:var(--cy); font-family:monospace; margin-bottom:4px;">APXS ELEMENTAL ABUNDANCE SPECTROMETRY (ALPHA PROTON X-RAY)</div>
+      <canvas id="sp" width="520" height="150" style="position:static; width:100%; height:140px; display:block;"></canvas>
+    </div>
+    <p style="font-size:11px; color:var(--t2);">Spectrometer deployed at 0.5 cm distance. Sensor array confirms volcanic basaltic composition with high silicate matrix.</p>
+    <div class="row"><button id="ic">Save Data &amp; Complete Analysis</button></div>
+  </div>
+</div>
+
+<!-- Mission Complete Modal -->
+<div class="ov" id="done">
+  <div class="p box">
+    <h1 style="font-size:24px;">MISSION <span>SUCCESSFUL</span></h1>
+    <div id="dn" style="color:var(--tx); line-height:1.85; margin:14px 0; font-size:13.5px; background:rgba(0,0,0,0.3); padding:14px; border-radius:6px; border-left:3px solid var(--cy);"></div>
+    <div class="row">
+      <button id="nx">Continue To Next Sector →</button>
+      <button class="s" id="rp">Replay Mission</button>
+    </div>
+  </div>
+</div>
+
+<!-- Three.js (Local with CDN fallback) -->
+<script src="js/three.min.js"></script>
+<script>if (typeof THREE === 'undefined') document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>');</script>
+
+<script>
+/* ====================================================================
+   AFTERLIGHT: MARS & LUNAR EXPEDITION ENGINE
+   ==================================================================== */
+
+const $ = id => document.getElementById(id);
+const T = THREE;
+const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+
+// Image Texture Asset Paths (seamless Moon regolith & rock textures)
+const IMG = {
+  mars: 'assets/textures/mars_surface.jpg',
+  marsRock: 'assets/textures/rocks.jpg',
+  moon: 'assets/textures/moon_surface.avif',
+  moonAlt: 'assets/moon-surface-seamless-texture-background_394312-2076.avif',
+  moonRock: 'assets/textures/moon_rock.jpg'
+};
+
+let world = 'mars'; // 'mars' or 'moon'
+let gameMode = 'rover'; // 'rover' or 'heli'
+let mi = 0;         // Current mission index
+let state = 'menu'; // 'menu', 'play', 'pause', 'insp', 'done'
+let unlocked = 1;
+try { unlocked = parseInt(localStorage.afl_unlocked) || 1; } catch(e) {}
+let heliUnlocked = 1;
+try { heliUnlocked = parseInt(localStorage.afl_heli_unlocked) || 1; } catch(e) {}
+
+// ==================== MISSIONS SPECIFICATION ====================
+const MS = [
+  {
+    n: '01 FIRST CONTACT',
+    s: [0, 0],
+    steps: [
+      { t: 'Activate drive systems: Push joystick UP or press W to move', k: 'move' },
+      { t: 'Engage Overdrive Sprint: Tap or Hold SPRINT to surge forward', k: 'sprint' },
+      { t: 'Steer left past the survey beacon', p: [[-16, 36]] },
+      { t: 'Weave right around the boulder cluster', p: [[8, 56]] },
+      { t: 'Reach Checkpoint Alpha at the plateau base', p: [[0, 78]] }
+    ],
+    cards: {
+      0: ['Six Wheels & Rocker-Bogie Suspension', 'NASA\'s Sojourner used an articulated rocker-bogie mechanism with no springs. This allows the rover to climb obstacles twice its wheel diameter while keeping all six cleated wheels grounded.'],
+      1: ['Solar Overdrive & Battery Management', 'Rovers rely on solar array decks. Overdrive delivers bursts of peak battery current to hub motors for traversing loose dunes, but demands cooling between surges.'],
+      4: ['Deliberate Speed on Distant Worlds', 'On Mars, radio signals take 5 to 20 minutes to reach Earth. Sojourner moved at ~1 cm/second to allow autonomous hazard avoidance without tipping over.']
+    }
+  },
+  {
+    n: '02 THE ROCKY PATH',
+    s: [0, 78],
+    steps: [
+      { t: 'Advance toward the ancient geological escarpment', p: [[36, 110]] },
+      { t: 'Carefully skirt the rim of the impact crater', p: [[72, 145]] },
+      { t: 'Sprint across the rocky dune valley (Hold Shift or SPRINT)', p: [[95, 180]] },
+      { t: 'Reach Exploration Outpost Bravo', p: [[75, 215]] }
+    ],
+    cards: {
+      0: ['Route Planning from Orbit', 'Before sending drive sequences, JPL navigators analyze high-resolution orbital satellite photography to chart safe paths around treacherous rock gardens.'],
+      2: ['Impact Craters as Windows to the Past', 'Craters expose deep bedrock layers ejected by meteorite impacts, giving rovers access to billions of years of planetary history without drilling.']
+    }
+  },
+  {
+    n: '03 SCIENTIFIC DISCOVERY',
+    s: [75, 215],
+    steps: [
+      { t: 'Navigate to the glowing scientific anomaly site', p: [[26, 240]] },
+      { t: 'Carefully approach the giant target rock formation', p: [[-10, 252]] },
+      { t: 'Stop inside the scan circle and tap SCAN (E) to deploy APXS', k: 'insp' }
+    ],
+    cards: {
+      0: ['Deep Space Network Relay', 'Sojourner communicated with the Pathfinder lander base station via UHF radio, which relayed scientific telemetry to NASA\'s worldwide Deep Space Network antenna dishes.'],
+      2: ['Alpha Proton X-Ray Spectrometer (APXS)', 'The APXS sensor contains Curium-244 radioactive alpha sources. When pressed against Martian rocks, it reveals essential elements like Silicon, Iron, Magnesium, and Aluminum.']
+    }
+  },
+  {
+    n: '04 THE LOST SIGNAL',
+    s: [-10, 252],
+    steps: [
+      { t: 'Track the faint distress beacon signal west', p: [[-56, 234]] },
+      { t: 'Choose your route: North rocky ridge or South sand flats', p: [[-102, 212], [-92, 172]] },
+      { t: 'Sprint past high-risk seismic hazard terrain (Hold SPRINT)', p: [[-140, 146]] },
+      { t: 'Reach the abandoned exploration station', p: [[-160, 80]] }
+    ],
+    cards: {
+      0: ['Autonomous Hazard Avoidance', 'Equipped with front-facing stereo laser stripe projectors and Hazcams, NASA rovers can independently stop if a drop-off or impassable boulder is detected.']
+    }
+  }
+];
+
+// ==================== INGENUITY HELICOPTER MISSIONS ====================
+const MS_HELI = [
+  {
+    n: 'FLIGHT 01: FIRST FLIGHT & HOVER',
+    s: [-45, -35], // Helipad coordinates
+    steps: [
+      { t: 'Vertical Takeoff: Hold SPACE (or tap ▲ CLIMB) to ascend past 3m', k: 'takeoff' },
+      { t: 'Maintain Stable Hover: Hold altitude between 4m and 8m (or press X for Auto-Hover)', k: 'hover' },
+      { t: 'Forward Flight: Steer toward Survey Waypoint Alpha', p: [[-30, -10]], alt: 5.0 },
+      { t: 'Airfield Circuit: Bank right toward Waypoint Beta', p: [[-65, -15]], alt: 5.0 },
+      { t: 'Approach & Landing: Touch down smoothly onto the Helipad [ H ]', p: [[-45, -35]], k: 'land' }
+    ],
+    cards: {
+      0: ['Mars Helicopter Aerodynamics', 'The Martian atmosphere is less than 1% as dense as Earth\'s. To generate sufficient lift in such thin air, Ingenuity\'s twin counter-rotating carbon fiber blades spin at an astonishing 2,400 to 2,700 RPM—roughly five times faster than helicopters on Earth.'],
+      1: ['Autonomous Onboard Flight Control', 'Because radio signals between Earth and Mars take up to 20 minutes each way, Ingenuity cannot be piloted with a real-time joystick from Earth. Its onboard avionics execute autonomous flight stabilization loops 500 times per second.'],
+      4: ['Historic Wright Brothers Fabric', 'Attached underneath Ingenuity\'s solar panel is a postage-stamp-sized swatch of muslin wing fabric from the 1903 Wright Flyer, commemorating humanity\'s first powered flight on another planet.']
+    }
+  },
+  {
+    n: 'FLIGHT 02: AERIAL RECONNAISSANCE',
+    s: [-45, -35],
+    steps: [
+      { t: 'High-Altitude Ascent: Climb above 8 meters altitude', k: 'takeoff_high' },
+      { t: 'Reconnaissance Run: Transit north over the ancient outflow channel', p: [[-45, 15]], alt: 9.0 },
+      { t: 'Geological Survey: Switch to NAV-CAM (C key or 📷 CAM) over target anomaly', p: [[-20, 35]], k: 'navcam', alt: 9.0 },
+      { t: 'Return Sortie: Navigate back to Mars Research Base', p: [[-45, -15]], alt: 7.0 },
+      { t: 'Final Approach: Land safely on the Base Helipad', p: [[-45, -35]], k: 'land' }
+    ],
+    cards: {
+      0: ['Aerial Scouting for Rovers', 'Ingenuity acted as an aerial scout for NASA\'s Perseverance rover, flying ahead over rugged boulder fields and dunes to map the safest drive paths and identify high-value science targets.'],
+      2: ['NAV-CAM Visual Odometry', 'Ingenuity uses a downward-pointing black-and-white navigation camera (NAV-CAM) capturing 30 frames per second. By tracking ground features frame-to-frame, it calculates its exact position and groundspeed without GPS.']
+    }
+  },
+  {
+    n: 'FLIGHT 03: BASE LOGISTICS & SENSOR TRANSPORT',
+    s: [-45, -35],
+    steps: [
+      { t: 'Takeoff and fly to Cargo Logistics Bay: Hover low (< 2.5m) over yellow pedestal', p: [[-58, -32]], alt: 2.2 },
+      { t: 'Cargo Latch: Hover directly over Atmospheric Sensor Pod and tap CARGO (E)', k: 'cargo_pickup' },
+      { t: 'Underslung Transport: Carefully fly cargo to Outpost Alpha', p: [[-10, -50]], alt: 5.5 },
+      { t: 'Payload Delivery: Hover low inside glowing zone ring and tap CARGO (E) to release', p: [[-10, -50]], k: 'cargo_drop', alt: 2.0 },
+      { t: 'Return to Base: Touch down on Helipad [ H ]', p: [[-45, -35]], k: 'land' }
+    ],
+    cards: {
+      0: ['Educational Scenario: Cargo Transport', 'This flight mode explores the physical principles of planetary aerial transport. While the real Ingenuity was purely a scientific technology demonstrator, future heavy-lift Mars rotorcraft are designed to ferry instruments between outposts.'],
+      2: ['Pendulum Dynamics in Low Martian Gravity', 'Slung cargo creates pendulum sway during acceleration. Because Mars gravity is only 38% of Earth\'s (0.38g), a swinging payload decelerates differently, requiring smooth, steady pitch angles to maintain stability.']
+    }
+  },
+  {
+    n: 'FLIGHT 04: REMOTE FIELD DEPLOYMENT',
+    s: [-45, -35],
+    steps: [
+      { t: 'Sortie Launch: Hover low over Cargo Logistics Bay and latch the Deep Seismic Probe (E)', p: [[-58, -32]], k: 'cargo_pickup_remote', alt: 2.2 },
+      { t: 'Transit to Outpost Beta: Fly southwest over the ridge to deployment zone', p: [[-75, 40]], k: 'cargo_drop_beta', alt: 5.0 },
+      { t: 'High-Speed Transit: Speed run across the canyon rim to Outpost Gamma', p: [[-35, 75]], alt: 8.0 },
+      { t: 'Base Inbound: Navigate the southern approach corridor', p: [[-45, 10]], alt: 6.0 },
+      { t: 'Mission Recovery: Perform precision touchdown on the Helipad', p: [[-45, -35]], k: 'land' }
+    ],
+    cards: {
+      0: ['Martian Night Thermal Challenges', 'Temperatures on Mars drop below -90°C (-130°F) at night. Ingenuity used solar energy gathered during the day to power internal survival heaters, keeping vital avionics and lithium-ion batteries warm through the freezing nights.'],
+      2: ['Beyond Expectations: 72 Martian Flights', 'Originally planned as a 30-day technology demonstration with just 5 flights, Ingenuity operated for nearly three years, completing 72 historic flights and covering over 17 kilometers across Mars!']
+    }
+  }
+];
+
+const MOONCARDS = [
+  ['Oceanus Procellarum: The Ocean of Storms', 'The vast dark volcanic plain was formed over 3 billion years ago by ancient flood basalt eruptions. With no atmosphere to scatter light, the sky remains pitch-black even at high noon.'],
+  ['Lunar Opposition Surge (Heiligenschein)', 'Notice how the ground brightens around your shadow! The porous microscopic structure of lunar regolith retroreflects sunlight directly back at the source, creating a radiant halo effect celebrated by Apollo astronauts.'],
+  ['Lunar Dust Fountains & Electrostatic Weather', 'The Moon has no rain or wind, but it does have weather: solar UV radiation knocks electrons from surface dust, charging particles so they levitate meters into the vacuum sky at the terminator line.'],
+  ['Apollo Legacy: The Descent Stage', 'Left behind when astronauts returned to orbit, the gold-foil insulated Apollo Lunar Module descent stages remain permanently preserved on the Moon, completely unchanged after more than half a century.']
+];
+
+const WORLD_CONFIG = {
+  mars: {
+    fog: 0xb98864,
+    skyTop: 0x3d2c22,
+    skyHor: 0xd49b74,
+    sun: 0xffedd6,
+    sunIntensity: 2.2,
+    ambient: 0x8a5438,
+    gravity: 1.0,
+    dustColor: 0xd98d62
+  },
+  moon: {
+    fog: 0x000000,
+    skyTop: 0x000000,
+    skyHor: 0x000000,
+    sun: 0xffffff,
+    sunIntensity: 3.8,
+    ambient: 0x141a24,
+    gravity: 0.45,
+    dustColor: 0xc8c8c8
+  }
+};
+
+// ==================== THREE.JS ENGINE INITIALIZATION ====================
+const canvas = $('c');
+const R = new T.WebGLRenderer({
+  canvas,
+  antialias: true,
+  powerPreference: 'high-performance'
+});
+R.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+R.shadowMap.enabled = true;
+R.shadowMap.type = T.PCFSoftShadowMap;
+R.outputEncoding = T.sRGBEncoding;
+R.toneMapping = T.ACESFilmicToneMapping;
+R.toneMappingExposure = 1.08;
+
+const sc = new T.Scene();
+const cam = new T.PerspectiveCamera(55, 1, 0.1, 1200);
+
+function onWindowResize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  R.setSize(w, h);
+  cam.aspect = w / h;
+  cam.updateProjectionMatrix();
+}
+window.addEventListener('resize', onWindowResize);
+onWindowResize();
+
+// ==================== PROCEDURAL TEXTURES & NOISE ====================
+const hash = (x, y) => {
+  const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+  return s - Math.floor(s);
+};
+function vn(x, y) {
+  const i = Math.floor(x), j = Math.floor(y);
+  const fx = x - i, fy = y - j;
+  const u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy);
+  return hash(i, j) * (1 - u) * (1 - v) +
+         hash(i + 1, j) * u * (1 - v) +
+         hash(i, j + 1) * (1 - u) * v +
+         hash(i + 1, j + 1) * u * v;
+}
+function fbm(x, y, oct = 4) {
+  let val = 0, amp = 0.5, freq = 1;
+  for (let i = 0; i < oct; i++) {
+    val += vn(x * freq, y * freq) * amp;
+    freq *= 2.05;
+    amp *= 0.5;
+  }
+  return val;
+}
+
+function createNoiseTexture(size = 512, scale = 120) {
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = size;
+  const ctx = cv.getContext('2d');
+  const imgData = ctx.createImageData(size, size);
+  const d = imgData.data;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const idx = (y * size + x) * 4;
+      const n = fbm(x / 32, y / 32, 4);
+      const grain = (hash(x * 0.7, y * 0.9) - 0.5) * 45;
+      const val = clamp(n * 220 + grain, 0, 255);
+      d[idx] = d[idx + 1] = d[idx + 2] = val;
+      d[idx + 3] = 255;
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+  const tex = new T.CanvasTexture(cv);
+  tex.wrapS = tex.wrapT = T.RepeatWrapping;
+  tex.repeat.set(scale, scale);
+  return tex;
+}
+const NOISE_TEX = createNoiseTexture(512, 140);
+
+function createProceduralMoonTexture() {
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 1024;
+  const ctx = cv.getContext('2d');
+  const imgData = ctx.createImageData(1024, 1024);
+  const d = imgData.data;
+  for (let y = 0; y < 1024; y++) {
+    for (let x = 0; x < 1024; x++) {
+      const idx = (y * 1024 + x) * 4;
+      const n1 = fbm(x / 90, y / 90, 5);
+      const n2 = fbm(x / 25, y / 25, 4);
+      const microCraters = Math.pow(clamp(vn(x * 0.08, y * 0.08), 0, 1), 5.0) * 80;
+      const gray = clamp(115 + n1 * 80 + n2 * 40 - microCraters + (hash(x, y) - 0.5) * 30, 45, 235);
+      d[idx] = gray;
+      d[idx + 1] = gray + 1;
+      d[idx + 2] = gray + 4;
+      d[idx + 3] = 255;
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+  const tex = new T.CanvasTexture(cv);
+  tex.wrapS = tex.wrapT = T.RepeatWrapping;
+  tex.repeat.set(24, 24);
+  tex.encoding = T.sRGBEncoding;
+  tex.anisotropy = 8;
+  return tex;
+}
+
+function createProceduralMarsTexture() {
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 1024;
+  const ctx = cv.getContext('2d');
+  const imgData = ctx.createImageData(1024, 1024);
+  const d = imgData.data;
+  for (let y = 0; y < 1024; y++) {
+    for (let x = 0; x < 1024; x++) {
+      const idx = (y * 1024 + x) * 4;
+      const n1 = fbm(x / 120, y / 120, 5);
+      const n2 = fbm(x / 35, y / 35, 4);
+      const ripple = Math.sin(x * 0.15 + n1 * 8) * 0.15;
+      const combined = clamp(n1 * 0.65 + n2 * 0.35 + ripple, 0, 1);
+      d[idx] = clamp(185 + combined * 65 + (hash(x, y) - 0.5) * 20, 110, 255);
+      d[idx + 1] = clamp(75 + combined * 60 + (hash(x * 2, y) - 0.5) * 15, 45, 175);
+      d[idx + 2] = clamp(40 + combined * 45, 20, 110);
+      d[idx + 3] = 255;
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+  const tex = new T.CanvasTexture(cv);
+  tex.wrapS = tex.wrapT = T.RepeatWrapping;
+  tex.repeat.set(18, 18);
+  tex.encoding = T.sRGBEncoding;
+  tex.anisotropy = 8;
+  return tex;
+}
+
+const textureLoader = new T.TextureLoader();
+function loadTextureWithFallback(url, fallbackFn, repeat = 1) {
+  if (!url) return fallbackFn();
+  const tex = textureLoader.load(
+    url,
+    () => {
+      tex.wrapS = tex.wrapT = T.RepeatWrapping;
+      tex.repeat.set(repeat, repeat);
+      tex.encoding = T.sRGBEncoding;
+      tex.anisotropy = 8;
+      tex.needsUpdate = true;
+    },
+    undefined,
+    () => {
+      console.warn('Fallback procedural texture loaded for:', url);
+    }
+  );
+  tex.wrapS = tex.wrapT = T.RepeatWrapping;
+  tex.repeat.set(repeat, repeat);
+  tex.encoding = T.sRGBEncoding;
+  tex.anisotropy = 8;
+  return tex;
+}
+
+// ==================== PLANETARY ELEVATION MAP ====================
+const CRATERS = [
+  [45, 125, 18, 3.2],
+  [-65, 100, 26, 4.2],
+  [125, 60, 30, 4.8],
+  [-105, 175, 22, 3.5],
+  [155, 205, 36, 5.5],
+  [25, -60, 24, 3.8],
+  [-25, 150, 16, 2.5]
+];
+
+function getTerrainHeight(x, z) {
+  const isMoon = (world === 'moon');
+  const scale = isMoon ? 1.35 : 1.0;
+  
+  let h = (vn(x * 0.011, z * 0.011) - 0.5) * 17 * scale +
+          (vn(x * 0.038, z * 0.038) - 0.5) * 4.2 +
+          (vn(x * 0.14, z * 0.14) - 0.5) * 0.9 +
+          (vn(x * 0.55, z * 0.55) - 0.5) * 0.15;
+  
+  for (const [cx, cz, cr, cdepth] of CRATERS) {
+    const dist = Math.hypot(x - cx, z - cz);
+    const q = dist / cr;
+    if (q < 1.4) {
+      if (q < 1.0) {
+        const bowl = -cdepth * (1 - q * q) * (1 - q * q * 0.28);
+        const centralPeak = (q < 0.24) ? cdepth * 0.42 * (1 - q / 0.24) : 0;
+        h += bowl + centralPeak;
+      } else {
+        h += cdepth * 0.26 * Math.max(0, 1 - (q - 1.0) * 3.2);
+      }
+    }
+  }
+  
+  const spawnDist = Math.hypot(x, z);
+  return h * (1 - Math.exp(-(spawnDist * spawnDist) / 80));
+}
+
+// ==================== LUNAR SURFACE SHADER ====================
+function createLunarRegolithMaterial(texture) {
+  const mat = new T.MeshStandardMaterial({
+    map: texture,
+    bumpMap: NOISE_TEX,
+    bumpScale: 1.6,
+    roughness: 0.96,
+    metalness: 0.04,
+    color: 0xd2d2d8
+  });
+  
+  mat.onBeforeCompile = shader => {
+    shader.uniforms.sunDir = { value: new T.Vector3(0.5, 0.8, 0.4).normalize() };
+    shader.uniforms.earthshineColor = { value: new T.Color(0x182436) };
+    
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <common>',
+      `#include <common>
+       varying vec3 vWorldPos;`
+    );
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <worldpos_vertex>',
+      `#include <worldpos_vertex>
+       vWorldPos = (modelMatrix * vec4(transformed, 1.0)).xyz;`
+    );
+    
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <common>',
+      `#include <common>
+       uniform vec3 sunDir;
+       uniform vec3 earthshineColor;
+       varying vec3 vWorldPos;`
+    );
+    
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <dithering_fragment>',
+      `#include <dithering_fragment>
+       vec3 viewDir = normalize(cameraPosition - vWorldPos);
+       float phase = dot(viewDir, sunDir);
+       float heiligenschein = pow(clamp(phase, 0.0, 1.0), 18.0) * 0.45;
+       float rim = pow(1.0 - clamp(dot(geometryNormal, viewDir), 0.0, 1.0), 4.0) * 0.15;
+       gl_FragColor.rgb += vec3(0.38, 0.40, 0.45) * heiligenschein + vec3(0.2, 0.25, 0.3) * rim;
+      `
+    );
+  };
+  return mat;
+}
+
+// ==================== WORLD BUILDER ====================
+let worldGroup = null;
+let rockColliders = [];
+let targetMesh = null;
+let beaconMesh = null;
+let beaconRing = null;
+let sunLight = null;
+let earthMesh = null;
+let dustParticles = null;
+let electrostaticDust = null;
+let apolloLanderGroup = null;
+
+let currentBuiltWorld = null;
+
+function disposeHierarchy(obj) {
+  if (!obj) return;
+  obj.traverse(child => {
+    if (child.isMesh || child.isPoints) {
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) {
+        if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+        else child.material.dispose();
+      }
+    }
+  });
+}
+
+function buildWorld() {
+  if (currentBuiltWorld === world && worldGroup) {
+    // World already built - preserve GPU memory, only reset colliders/positions
+    return;
+  }
+  
+  if (worldGroup) {
+    disposeHierarchy(worldGroup);
+    sc.remove(worldGroup);
+  }
+  currentBuiltWorld = world;
+  worldGroup = new T.Group();
+  sc.add(worldGroup);
+  rockColliders = [];
+  
+  const cfg = WORLD_CONFIG[world];
+  const isMoon = (world === 'moon');
+  
+  if (isMoon) {
+    sc.fog = null;
+    sc.background = new T.Color(0x000000);
+    $('hasselblad-grid').style.display = (camViewMode === 2) ? 'block' : 'none';
+  } else {
+    sc.fog = new T.FogExp2(cfg.fog, 0.0055);
+    sc.background = new T.Color(cfg.skyHor);
+    $('hasselblad-grid').style.display = 'none';
+  }
+  
+  const hemiSky = isMoon ? 0x182436 : 0xffddc4;
+  worldGroup.add(new T.HemisphereLight(hemiSky, cfg.ambient, isMoon ? 0.38 : 0.85));
+  
+  sunLight = new T.DirectionalLight(cfg.sun, cfg.sunIntensity);
+  sunLight.position.set(-85, 65, -45);
+  sunLight.castShadow = true;
+  sunLight.shadow.mapSize.set(2048, 2048);
+  const sh = sunLight.shadow.camera;
+  sh.left = sh.bottom = -45;
+  sh.right = sh.top = 45;
+  sh.near = 10;
+  sh.far = 260;
+  sunLight.shadow.bias = isMoon ? -0.0003 : -0.0004;
+  worldGroup.add(sunLight, sunLight.target);
+  
+  const sunDisc = new T.Mesh(
+    new T.SphereGeometry(isMoon ? 14 : 8, 24, 16),
+    new T.MeshBasicMaterial({ color: isMoon ? 0xffffff : 0xffebd2, fog: false })
+  );
+  sunDisc.position.copy(sunLight.position).normalize().multiplyScalar(700);
+  worldGroup.add(sunDisc);
+  
+  if (isMoon) {
+    const flareGeo = new T.PlaneGeometry(160, 160);
+    const flareMat = new T.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.28,
+      fog: false,
+      depthWrite: false
+    });
+    const flare = new T.Mesh(flareGeo, flareMat);
+    flare.position.copy(sunDisc.position);
+    flare.lookAt(0, 0, 0);
+    worldGroup.add(flare);
+  }
+  
+  if (!isMoon) {
+    const skyDome = new T.Mesh(
+      new T.SphereGeometry(750, 32, 20),
+      new T.ShaderMaterial({
+        side: T.BackSide,
+        depthWrite: false,
+        fog: false,
+        uniforms: {
+          topColor: { value: new T.Color(cfg.skyTop) },
+          horColor: { value: new T.Color(cfg.skyHor) }
+        },
+        vertexShader: `
+          varying float vY;
+          void main() {
+            vY = normalize(position).y;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          uniform vec3 topColor;
+          uniform vec3 horColor;
+          varying float vY;
+          void main() {
+            float factor = pow(clamp(vY, 0.0, 1.0), 0.65);
+            gl_FragColor = vec4(mix(horColor, topColor, factor), 1.0);
+          }
+        `
+      })
+    );
+    worldGroup.add(skyDome);
+  }
+  
+  if (isMoon) {
+    const starCoords = [], starColors = [];
+    for (let i = 0; i < 3500; i++) {
+      const u = Math.random() * Math.PI * 2;
+      const v = Math.random() * 1.55 + 0.02;
+      const r = 750;
+      starCoords.push(Math.cos(u) * Math.cos(v) * r, Math.sin(v) * r, Math.sin(u) * Math.cos(v) * r);
+      const temp = Math.random();
+      if (temp > 0.8) starColors.push(0.8, 0.9, 1.0);
+      else if (temp > 0.6) starColors.push(1.0, 0.9, 0.8);
+      else starColors.push(1.0, 1.0, 1.0);
+    }
+    const starGeo = new T.BufferGeometry();
+    starGeo.setAttribute('position', new T.Float32BufferAttribute(starCoords, 3));
+    starGeo.setAttribute('color', new T.Float32BufferAttribute(starColors, 3));
+    worldGroup.add(new T.Points(
+      starGeo,
+      new T.PointsMaterial({ size: 1.8, vertexColors: true, sizeAttenuation: false, fog: false })
+    ));
+    
+    earthMesh = new T.Group();
+    earthMesh.position.set(280, 360, 400);
+    
+    const earthSphere = new T.Mesh(
+      new T.SphereGeometry(38, 36, 28),
+      new T.MeshStandardMaterial({
+        color: 0x2262a8,
+        roughness: 0.6,
+        metalness: 0.1,
+        emissive: 0x081830
+      })
+    );
+    earthMesh.add(earthSphere);
+    
+    const cloudGeo = new T.SphereGeometry(38.6, 32, 24);
+    const cloudMat = new T.MeshStandardMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.45
+    });
+    const clouds = new T.Mesh(cloudGeo, cloudMat);
+    earthMesh.add(clouds);
+    
+    const earthHalo = new T.Mesh(
+      new T.SphereGeometry(41.0, 24, 20),
+      new T.MeshBasicMaterial({ color: 0x76b5ff, transparent: true, opacity: 0.28, side: T.BackSide, fog: false })
+    );
+    earthMesh.add(earthHalo);
+    worldGroup.add(earthMesh);
+  }
+  
+  // Terrain Plane
+  const T_RES = 230, T_SIZE = 460;
+  const terrainGeo = new T.PlaneGeometry(T_SIZE, T_SIZE, T_RES, T_RES);
+  terrainGeo.rotateX(-Math.PI / 2);
+  const posAttr = terrainGeo.attributes.position;
+  for (let i = 0; i < posAttr.count; i++) {
+    const px = posAttr.getX(i), pz = posAttr.getZ(i);
+    posAttr.setY(i, getTerrainHeight(px, pz));
+  }
+  terrainGeo.computeVertexNormals();
+  
+  let terrainMat;
+  if (isMoon) {
+    const moonTex = loadTextureWithFallback(IMG.moon, createProceduralMoonTexture, 24);
+    terrainMat = createLunarRegolithMaterial(moonTex);
+  } else {
+    const marsTex = loadTextureWithFallback(IMG.mars, createProceduralMarsTexture, 18);
+    terrainMat = new T.MeshStandardMaterial({
+      map: marsTex,
+      bumpMap: NOISE_TEX,
+      bumpScale: 1.4,
+      roughness: 0.95,
+      metalness: 0.05,
+      color: 0xffffff
+    });
+  }
+  
+  const terrainMesh = new T.Mesh(terrainGeo, terrainMat);
+  terrainMesh.receiveShadow = true;
+  worldGroup.add(terrainMesh);
+  
+  // Mountain Ridge
+  const mtnGeo = new T.CylinderGeometry(370, 370, 95, 180, 1, true);
+  const mtnPos = mtnGeo.attributes.position;
+  for (let i = 0; i < mtnPos.count; i++) {
+    if (mtnPos.getY(i) > 0) {
+      const angle = Math.atan2(mtnPos.getZ(i), mtnPos.getX(i));
+      const peak = 14 + vn(angle * 7, 2) * 58 + vn(angle * 28, 5) * 18;
+      mtnPos.setY(i, peak);
+    } else {
+      mtnPos.setY(i, -15);
+    }
+  }
+  mtnGeo.computeVertexNormals();
+  const mtnMat = new T.MeshStandardMaterial({
+    color: isMoon ? 0x2e3036 : 0x824e36,
+    roughness: 0.98,
+    side: T.DoubleSide,
+    flatShading: true
+  });
+  const mtnMesh = new T.Mesh(mtnGeo, mtnMat);
+  mtnMesh.position.y = -5;
+  worldGroup.add(mtnMesh);
+  
+  // Rocks
+  const rockTex = isMoon ?
+    loadTextureWithFallback(IMG.moonRock, () => createNoiseTexture(512, 2), 1.5) :
+    loadTextureWithFallback(IMG.marsRock, () => createNoiseTexture(512, 2), 1.5);
+    
+  const rockMat = new T.MeshStandardMaterial({
+    map: rockTex,
+    bumpMap: NOISE_TEX,
+    bumpScale: isMoon ? 1.9 : 1.6,
+    roughness: isMoon ? 0.92 : 0.9,
+    metalness: isMoon ? 0.15 : 0.1,
+    color: isMoon ? 0xcccccc : 0xd8b59e
+  });
+  
+  const waypoints = [];
+  MS.forEach(m => {
+    waypoints.push(m.s);
+    m.steps.forEach(s => {
+      if (s.p) s.p.forEach(pt => waypoints.push(pt));
+    });
+  });
+  
+  const isPositionFree = (x, z, r) => {
+    const clearFromWaypoints = waypoints.every(w => Math.hypot(w[0] - x, w[1] - z) > r + 6.5);
+    const clearFromCraters = CRATERS.every(c => Math.hypot(c[0] - x, c[1] - z) > c[2] * 1.05 || r < 0.6);
+    return clearFromWaypoints && clearFromCraters;
+  };
+  
+  function createBoulder(x, z, radius, isCollider = true) {
+    const geo = new T.IcosahedronGeometry(1, 2);
+    const p = geo.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const px = p.getX(i), py = p.getY(i), pz = p.getZ(i);
+      const deform = 1 + (vn(px * 2.2 + x, pz * 2.2 + z) - 0.5) * 0.78;
+      p.setXYZ(i, px * deform, py * deform * 0.72, pz * deform);
+    }
+    geo.computeVertexNormals();
+    
+    const m = new T.Mesh(geo, rockMat);
+    m.scale.set(radius, radius, radius * (0.8 + Math.random() * 0.4));
+    m.position.set(x, getTerrainHeight(x, z) + radius * 0.28, z);
+    m.rotation.set(Math.random() * 0.4, Math.random() * Math.PI * 2, Math.random() * 0.3);
+    m.castShadow = true;
+    m.receiveShadow = true;
+    worldGroup.add(m);
+    
+    if (isCollider) {
+      rockColliders.push({ x, z, r: radius * 0.92, mesh: m });
+    }
+    return m;
+  }
+  
+  let seed = 42;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  
+  for (let i = 0; i < 170; i++) {
+    const x = (rnd() - 0.5) * 360;
+    const z = (rnd() - 0.5) * 360;
+    const r = 1.2 + rnd() * 2.6;
+    if (isPositionFree(x, z, r)) {
+      createBoulder(x, z, r, true);
+    }
+  }
+  
+  MS.forEach(m => {
+    m.steps.forEach(s => {
+      if (s.p) {
+        for (let i = 0; i < 6; i++) {
+          const a = rnd() * Math.PI * 2;
+          const d = 9 + rnd() * 9;
+          const bx = s.p[0][0] + Math.cos(a) * d;
+          const bz = s.p[0][1] + Math.sin(a) * d;
+          if (isPositionFree(bx, bz, 1.2)) {
+            createBoulder(bx, bz, 0.9 + rnd() * 1.5, true);
+          }
+        }
+      }
+    });
+  });
+  
+  const PEBBLE_COUNT = 1100;
+  const pebbleGeo = new T.DodecahedronGeometry(0.18, 0);
+  const pebbleMesh = new T.InstancedMesh(pebbleGeo, rockMat, PEBBLE_COUNT);
+  const dummy = new T.Object3D();
+  for (let i = 0; i < PEBBLE_COUNT; i++) {
+    const px = (rnd() - 0.5) * 320;
+    const pz = (rnd() - 0.5) * 320;
+    const scVal = 0.4 + rnd() * 1.5;
+    dummy.position.set(px, getTerrainHeight(px, pz) + 0.05, pz);
+    dummy.scale.set(scVal, scVal * 0.65, scVal);
+    dummy.rotation.set(rnd() * 3, rnd() * 3, 0);
+    dummy.updateMatrix();
+    pebbleMesh.setMatrixAt(i, dummy.matrix);
+  }
+  pebbleMesh.castShadow = true;
+  worldGroup.add(pebbleMesh);
+  
+  // Apollo Lunar Module (LM)
+  if (isMoon) {
+    apolloLanderGroup = new T.Group();
+    const lx = 48, lz = 118;
+    const ly = getTerrainHeight(lx, lz);
+    apolloLanderGroup.position.set(lx, ly, lz);
+    
+    const lmBaseGeo = new T.CylinderGeometry(3.2, 3.4, 1.8, 8);
+    const lmBaseMat = new T.MeshStandardMaterial({
+      color: 0xc89e38,
+      roughness: 0.35,
+      metalness: 0.9
+    });
+    const lmBase = new T.Mesh(lmBaseGeo, lmBaseMat);
+    lmBase.position.y = 1.6;
+    lmBase.castShadow = true;
+    apolloLanderGroup.add(lmBase);
+    
+    const engineGeo = new T.ConeGeometry(1.1, 1.6, 16, 1, true);
+    const engineMat = new T.MeshStandardMaterial({ color: 0x222222, roughness: 0.7, metalness: 0.8 });
+    const engine = new T.Mesh(engineGeo, engineMat);
+    engine.rotation.x = Math.PI;
+    engine.position.y = 0.4;
+    apolloLanderGroup.add(engine);
+    
+    for (let leg = 0; leg < 4; leg++) {
+      const angle = (leg / 4) * Math.PI * 2 + Math.PI / 4;
+      const legGroup = new T.Group();
+      legGroup.rotation.y = angle;
+      
+      const strutGeo = new T.CylinderGeometry(0.08, 0.08, 3.8);
+      const strutMat = new T.MeshStandardMaterial({ color: 0x999999, metalness: 0.8 });
+      const strut = new T.Mesh(strutGeo, strutMat);
+      strut.rotation.z = -0.7;
+      strut.position.set(1.4, 0.8, 0);
+      legGroup.add(strut);
+      
+      const padGeo = new T.CylinderGeometry(0.7, 0.8, 0.12, 12);
+      const padMat = new T.MeshStandardMaterial({ color: 0xc89e38, metalness: 0.85 });
+      const pad = new T.Mesh(padGeo, padMat);
+      pad.position.set(2.8, 0.06, 0);
+      legGroup.add(pad);
+      
+      apolloLanderGroup.add(legGroup);
+    }
+    
+    const mesaBox = new T.Mesh(new T.BoxGeometry(1.2, 0.8, 0.9), new T.MeshStandardMaterial({ color: 0xdddddd }));
+    mesaBox.position.set(0, 1.6, 3.0);
+    apolloLanderGroup.add(mesaBox);
+    
+    const ladder = new T.Mesh(new T.BoxGeometry(0.4, 2.2, 0.08), new T.MeshStandardMaterial({ color: 0xaaaaaa }));
+    ladder.position.set(2.0, 1.2, 2.0);
+    ladder.rotation.y = -0.78;
+    apolloLanderGroup.add(ladder);
+    
+    worldGroup.add(apolloLanderGroup);
+    rockColliders.push({ x: lx, z: lz, r: 4.5, mesh: lmBase });
+    
+    const towerGroup = new T.Group();
+    towerGroup.position.set(-110, getTerrainHeight(-110, 160), 160);
+    const mast = new T.Mesh(new T.CylinderGeometry(0.3, 0.6, 22, 8), new T.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.9 }));
+    mast.position.y = 11;
+    towerGroup.add(mast);
+    const dish = new T.Mesh(new T.CylinderGeometry(3.5, 0.5, 1.2, 16), new T.MeshStandardMaterial({ color: 0xffffff, metalness: 0.5 }));
+    dish.position.set(0, 21, 0);
+    dish.rotation.x = 0.5;
+    towerGroup.add(dish);
+    worldGroup.add(towerGroup);
+  }
+  
+  // Target Rock
+  const targetPos = [-10, 252];
+  targetMesh = createBoulder(targetPos[0], targetPos[1], 2.2, true);
+  targetMesh.material = new T.MeshStandardMaterial({
+    map: rockTex,
+    bumpMap: NOISE_TEX,
+    bumpScale: 1.8,
+    roughness: 0.8,
+    metalness: 0.15,
+    color: isMoon ? 0xebebf0 : 0xffccaa,
+    emissive: isMoon ? 0x112233 : 0x4a1808
+  });
+  targetMesh.userData.name = isMoon ? 'APOLLO ANORTHOSITE "SHADOW ROCK"' : 'YOGI ROCK FORMATION';
+  
+  // Objective Beacons
+  beaconMesh = new T.Mesh(
+    new T.CylinderGeometry(0.4, 0.4, 50, 16, 1, true),
+    new T.MeshBasicMaterial({
+      color: 0x69c9f2,
+      transparent: true,
+      opacity: 0.4,
+      depthWrite: false,
+      fog: false
+    })
+  );
+  beaconRing = new T.Mesh(
+    new T.TorusGeometry(4.2, 0.14, 12, 48),
+    new T.MeshBasicMaterial({ color: 0x69c9f2, fog: false })
+  );
+  beaconRing.rotation.x = Math.PI / 2;
+  worldGroup.add(beaconMesh, beaconRing);
+  
+  worldGroup.add(rover.group);
+  if (!isMoon) {
+    buildMarsBase(worldGroup);
+    worldGroup.add(heli.group);
+  }
+  
+  // Dust Particle System
+  const DUST_COUNT = 320;
+  const dustGeo = new T.BufferGeometry();
+  dustGeo.setAttribute('position', new T.Float32BufferAttribute(new Float32Array(DUST_COUNT * 3), 3));
+  dustParticles = new T.Points(
+    dustGeo,
+    new T.PointsMaterial({
+      color: cfg.dustColor,
+      size: isMoon ? 0.45 : 0.4,
+      transparent: true,
+      opacity: isMoon ? 0.75 : 0.6,
+      depthWrite: false
+    })
+  );
+  dustParticles.frustumCulled = false;
+  dustParticles.userData.pool = [];
+  worldGroup.add(dustParticles);
+  
+  // Lunar Electrostatic Dust System
+  if (isMoon) {
+    const ELEC_COUNT = 450;
+    const elecGeo = new T.BufferGeometry();
+    const elecPositions = new Float32Array(ELEC_COUNT * 3);
+    for (let i = 0; i < ELEC_COUNT; i++) {
+      elecPositions[i * 3]     = (Math.random() - 0.5) * 120;
+      elecPositions[i * 3 + 1] = Math.random() * 2.8 + 0.2;
+      elecPositions[i * 3 + 2] = (Math.random() - 0.5) * 120;
+    }
+    elecGeo.setAttribute('position', new T.Float32BufferAttribute(elecPositions, 3));
+    electrostaticDust = new T.Points(
+      elecGeo,
+      new T.PointsMaterial({
+        color: 0xffffff,
+        size: 0.35,
+        transparent: true,
+        opacity: 0.65,
+        depthWrite: false,
+        blending: T.AdditiveBlending
+      })
+    );
+    worldGroup.add(electrostaticDust);
+  } else {
+    electrostaticDust = null;
+  }
+}
+
+// ==================== ROVER MODEL ====================
+const rover = {
+  group: new T.Group(),
+  wheels: [],
+  steerNodes: [],
+  wheelPoints: [
+    [-0.62, 0.0, 0.0],
+    [ 0.62, 0.0, 0.0],
+    [-0.62, 0.0, 0.78],
+    [ 0.62, 0.0, 0.78],
+    [-0.62, 0.0, -0.78],
+    [ 0.62, 0.0, -0.78]
+  ],
+  x: 0,
+  z: 0,
+  y: 0,
+  yaw: 0,
+  pitch: 0,
+  roll: 0,
+  v: 0,
+  steer: 0,
+  odometer: 0,
+  sprintEnergy: 100,
+  isSprinting: false,
+  armExtended: false,
+  armNode: null
+};
+
+(function buildRoverModel() {
+  const g = rover.group;
+  const pbr = (col, rough = 0.5, metal = 0.5) => new T.MeshStandardMaterial({
+    color: col,
+    roughness: rough,
+    metalness: metal
+  });
+  
+  const chassis = new T.Mesh(new T.BoxGeometry(1.05, 0.42, 1.45), pbr(0xba943a, 0.35, 0.85));
+  chassis.position.y = 0.72;
+  chassis.castShadow = true;
+  g.add(chassis);
+  
+  const eqDeck = new T.Mesh(new T.BoxGeometry(1.15, 0.06, 1.55), pbr(0x2d3436, 0.6, 0.4));
+  eqDeck.position.y = 0.95;
+  g.add(eqDeck);
+  
+  const solarDeck = new T.Mesh(new T.BoxGeometry(1.18, 0.03, 1.52), pbr(0x101a36, 0.25, 0.3));
+  solarDeck.position.y = 0.99;
+  solarDeck.castShadow = true;
+  g.add(solarDeck);
+  
+  for (let i = -2; i <= 2; i++) {
+    const trace = new T.Mesh(new T.BoxGeometry(0.012, 0.035, 1.5), pbr(0xbbbbbb, 0.3, 0.8));
+    trace.position.set(i * 0.22, 0.995, 0);
+    g.add(trace);
+  }
+  
+  const mastPole = new T.Mesh(new T.CylinderGeometry(0.02, 0.025, 0.55), pbr(0xcccccc, 0.3, 0.9));
+  mastPole.position.set(-0.35, 1.25, 0.45);
+  g.add(mastPole);
+  
+  const camHead = new T.Mesh(new T.BoxGeometry(0.24, 0.1, 0.12), pbr(0x1a2430, 0.4, 0.7));
+  camHead.position.set(-0.35, 1.52, 0.45);
+  g.add(camHead);
+  
+  [-0.07, 0.07].forEach(offset => {
+    const lens = new T.Mesh(new T.CylinderGeometry(0.026, 0.026, 0.04), pbr(0x69c9f2, 0.1, 0.9));
+    lens.rotation.x = Math.PI / 2;
+    lens.position.set(-0.35 + offset, 1.52, 0.52);
+    g.add(lens);
+  });
+  
+  const hgaBase = new T.Mesh(new T.CylinderGeometry(0.08, 0.09, 0.08), pbr(0x444444, 0.5, 0.7));
+  hgaBase.position.set(0.35, 1.05, -0.45);
+  g.add(hgaBase);
+  
+  const hgaDish = new T.Mesh(new T.CylinderGeometry(0.16, 0.14, 0.04, 16), pbr(0xe5e5e5, 0.3, 0.8));
+  hgaDish.rotation.z = 0.35;
+  hgaDish.position.set(0.35, 1.15, -0.45);
+  g.add(hgaDish);
+  
+  const whipAntenna = new T.Mesh(new T.CylinderGeometry(0.008, 0.008, 1.2), pbr(0xdddddd, 0.2, 0.95));
+  whipAntenna.position.set(0.35, 1.6, -0.45);
+  g.add(whipAntenna);
+  
+  const hazcamMount = new T.Mesh(new T.BoxGeometry(0.18, 0.08, 0.08), pbr(0x222222, 0.5, 0.5));
+  hazcamMount.position.set(0, 0.65, 0.76);
+  g.add(hazcamMount);
+  
+  const armBase = new T.Group();
+  armBase.position.set(0, 0.62, -0.75);
+  g.add(armBase);
+  
+  const armSegment = new T.Mesh(new T.BoxGeometry(0.09, 0.09, 0.5), pbr(0x555555, 0.4, 0.8));
+  armSegment.position.set(0, 0, -0.22);
+  armBase.add(armSegment);
+  
+  const apxsSensor = new T.Mesh(new T.CylinderGeometry(0.09, 0.09, 0.16, 16), pbr(0x888888, 0.3, 0.9));
+  apxsSensor.rotation.x = Math.PI / 2;
+  apxsSensor.position.set(0, 0, -0.52);
+  armBase.add(apxsSensor);
+  rover.armNode = armBase;
+  
+  [-1, 1].forEach(side => {
+    const rockerBar = new T.Mesh(new T.BoxGeometry(0.06, 0.06, 1.55), pbr(0x38414a, 0.4, 0.8));
+    rockerBar.position.set(side * 0.54, 0.52, 0);
+    g.add(rockerBar);
+    
+    [0.78, 0.0, -0.78].forEach(zPos => {
+      const link = new T.Mesh(new T.BoxGeometry(0.04, 0.4, 0.04), pbr(0x2a323d, 0.4, 0.8));
+      link.position.set(side * 0.56, 0.38, zPos);
+      g.add(link);
+    });
+  });
+  
+  rover.wheelPoints.forEach((pt, index) => {
+    const wheelAssembly = new T.Group();
+    wheelAssembly.position.set(pt[0], 0.26, pt[2]);
+    wheelAssembly.userData.point = pt;
+    
+    const isSteered = (index >= 2);
+    const steerGroup = new T.Group();
+    wheelAssembly.add(steerGroup);
+    if (isSteered) {
+      rover.steerNodes.push({ group: steerGroup, isFront: index < 4, isLeft: pt[0] < 0 });
+    }
+    
+    const tire = new T.Mesh(
+      new T.CylinderGeometry(0.25, 0.25, 0.24, 20),
+      pbr(0x2a2e34, 0.8, 0.3)
+    );
+    tire.rotation.z = Math.PI / 2;
+    tire.castShadow = true;
+    steerGroup.add(tire);
+    
+    for (let c = 0; c < 12; c++) {
+      const cleat = new T.Mesh(new T.BoxGeometry(0.24, 0.028, 0.04), pbr(0x555a62, 0.5, 0.6));
+      const ang = (c / 12) * Math.PI * 2;
+      cleat.position.set(0, Math.cos(ang) * 0.25, Math.sin(ang) * 0.25);
+      cleat.rotation.x = ang;
+      tire.add(cleat);
+    }
+    
+    const hub = new T.Mesh(new T.CylinderGeometry(0.1, 0.1, 0.26, 12), pbr(0xb9943a, 0.3, 0.8));
+    hub.rotation.z = Math.PI / 2;
+    steerGroup.add(hub);
+    
+    g.add(wheelAssembly);
+    rover.wheels.push({ assembly: wheelAssembly, tire: tire });
+  });
+})();
+
+function roverLocalToWorld(x, z) {
+  const s = Math.sin(rover.yaw), c = Math.cos(rover.yaw);
+  return [rover.x + x * c + z * s, rover.z - x * s + z * c];
+}
+
+// ====================================================================
+// INGENUITY MARS HELICOPTER & FLIGHT OPERATIONS ENGINE
+// ====================================================================
+
+const heli = {
+  group: new T.Group(),
+  x: -45,
+  y: 0,
+  z: -35,
+  vx: 0,
+  vy: 0,
+  vz: 0,
+  pitch: 0,
+  roll: 0,
+  yaw: 0,
+  pitchRate: 0,
+  rollRate: 0,
+  yawRate: 0,
+  rotorRpm: 0, // 0 to 1.0 (2400 RPM scale)
+  flightState: 'landed', // 'landed', 'spooling', 'in_flight'
+  hoverMode: false,
+  targetHoverAlt: 5.0,
+  battery: 100,
+  isCarryingCargo: false,
+  cargo: null,
+  cargoSwingAngle: 0,
+  built: false,
+  lowerRotorGroup: null,
+  upperRotorGroup: null,
+  legs: [],
+  attachedCargoNode: null,
+  dockRing: null
+};
+
+let marsBaseGroup = null;
+let activeCargoPod = null;
+let heliWaypointMeshes = [];
+let touchHeliClimb = false;
+let touchHeliDescend = false;
+let heliRotorOsc1 = null, heliRotorOsc2 = null, heliRotorFilter = null, heliRotorGain = null;
+const CAM_MODES_HELI = ['FOLLOW', 'MAST CHASE', 'NAV-CAM'];
+
+// Procedural 3D Ingenuity Model Builder
+function buildHelicopterModel() {
+  if (heli.built) return;
+  heli.built = true;
+  const g = heli.group;
+  g.name = 'IngenuityHelicopter';
+  
+  // High-Quality PBR Materials
+  // Gold Thermal Multi-Layer Insulation (MLI) Foil
+  const foilCanvas = document.createElement('canvas');
+  foilCanvas.width = foilCanvas.height = 256;
+  const fCtx = foilCanvas.getContext('2d');
+  fCtx.fillStyle = '#b89438';
+  fCtx.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 3500; i++) {
+    const v = Math.random() * 70;
+    fCtx.fillStyle = `rgba(${v + 185}, ${v + 140}, ${v + 45}, 0.18)`;
+    fCtx.fillRect(Math.random() * 256, Math.random() * 256, Math.random() * 8 + 2, Math.random() * 8 + 2);
+  }
+  const foilTex = new T.CanvasTexture(foilCanvas);
+  foilTex.wrapS = foilTex.wrapT = T.RepeatWrapping;
+
+  const goldFoilMat = new T.MeshStandardMaterial({
+    color: 0xdfb152,
+    map: foilTex,
+    bumpMap: NOISE_TEX,
+    bumpScale: 0.14,
+    roughness: 0.22,
+    metalness: 0.88
+  });
+
+  const carbonFiberMat = new T.MeshStandardMaterial({
+    color: 0x181a1d,
+    roughness: 0.38,
+    metalness: 0.25,
+    bumpMap: NOISE_TEX,
+    bumpScale: 0.04
+  });
+
+  const titaniumMat = new T.MeshStandardMaterial({
+    color: 0xc4c7cc,
+    roughness: 0.3,
+    metalness: 0.85
+  });
+
+  const solarCellMat = new T.MeshStandardMaterial({
+    color: 0x10152b,
+    roughness: 0.18,
+    metalness: 0.65
+  });
+
+  // 1. Fuselage Warm Electronics Box (WEB)
+  const fuselage = new T.Mesh(new T.BoxGeometry(0.42, 0.36, 0.42), goldFoilMat);
+  fuselage.position.y = 0.45;
+  fuselage.castShadow = true;
+  fuselage.receiveShadow = true;
+  g.add(fuselage);
+
+  // Top & bottom titanium avionics plates
+  const topPlate = new T.Mesh(new T.BoxGeometry(0.44, 0.02, 0.44), titaniumMat);
+  topPlate.position.set(0, 0.64, 0);
+  g.add(topPlate);
+
+  const botPlate = new T.Mesh(new T.BoxGeometry(0.44, 0.02, 0.44), titaniumMat);
+  botPlate.position.set(0, 0.26, 0);
+  g.add(botPlate);
+
+  // Downward Navigation Camera (NAV-CAM) lens
+  const navCamRing = new T.Mesh(new T.CylinderGeometry(0.045, 0.045, 0.04, 16), titaniumMat);
+  navCamRing.position.set(0, 0.24, 0.06);
+  g.add(navCamRing);
+  const navCamLens = new T.Mesh(new T.CylinderGeometry(0.038, 0.038, 0.045, 16), new T.MeshStandardMaterial({
+    color: 0x1d4ed8,
+    roughness: 0.1,
+    metalness: 0.9
+  }));
+  navCamLens.position.set(0, 0.238, 0.06);
+  g.add(navCamLens);
+
+  // Laser Altimeter sensor
+  const altimeter = new T.Mesh(new T.CylinderGeometry(0.022, 0.022, 0.03, 12), titaniumMat);
+  altimeter.position.set(0.09, 0.24, -0.06);
+  g.add(altimeter);
+
+  // 2. Four Landing Legs (45-degree outward angle)
+  const legAngles = [Math.PI * 0.25, Math.PI * 0.75, Math.PI * 1.25, Math.PI * 1.75];
+  heli.legs = [];
+  legAngles.forEach((ang) => {
+    const legGroup = new T.Group();
+    const mx = Math.cos(ang) * 0.21;
+    const mz = Math.sin(ang) * 0.21;
+    legGroup.position.set(mx, 0.62, mz);
+
+    // Hinge ring
+    const hinge = new T.Mesh(new T.TorusGeometry(0.035, 0.012, 8, 16), titaniumMat);
+    hinge.rotation.y = ang;
+    legGroup.add(hinge);
+
+    // Angled leg strut
+    const strutLen = 0.68;
+    const legMesh = new T.Mesh(new T.CylinderGeometry(0.012, 0.009, strutLen, 10), carbonFiberMat);
+    legMesh.castShadow = true;
+
+    const outwardAngle = 0.76;
+    legMesh.position.set(Math.cos(ang) * (strutLen * 0.5 * Math.sin(outwardAngle)), -strutLen * 0.5 * Math.cos(outwardAngle), Math.sin(ang) * (strutLen * 0.5 * Math.sin(outwardAngle)));
+    legMesh.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), new T.Vector3(Math.cos(ang) * Math.sin(outwardAngle), -Math.cos(outwardAngle), Math.sin(ang) * Math.sin(outwardAngle)).normalize());
+    legGroup.add(legMesh);
+
+    // Flared aerodynamic foot pad
+    const footie = new T.Mesh(new T.ConeGeometry(0.038, 0.045, 12), carbonFiberMat);
+    const footX = Math.cos(ang) * (strutLen * Math.sin(outwardAngle));
+    const footY = -strutLen * Math.cos(outwardAngle);
+    const footZ = Math.sin(ang) * (strutLen * Math.sin(outwardAngle));
+    footie.position.set(footX, footY, footZ);
+    footie.rotation.x = Math.PI;
+    legGroup.add(footie);
+
+    g.add(legGroup);
+    heli.legs.push(legGroup);
+  });
+
+  // 3. Central Rotor Mast & Swashplates
+  const mast = new T.Mesh(new T.CylinderGeometry(0.024, 0.024, 0.62, 16), titaniumMat);
+  mast.position.set(0, 0.95, 0);
+  mast.castShadow = true;
+  g.add(mast);
+
+  const lowerSwashplate = new T.Mesh(new T.CylinderGeometry(0.065, 0.065, 0.035, 16), titaniumMat);
+  lowerSwashplate.position.set(0, 0.82, 0);
+  g.add(lowerSwashplate);
+
+  const upperSwashplate = new T.Mesh(new T.CylinderGeometry(0.065, 0.065, 0.035, 16), titaniumMat);
+  upperSwashplate.position.set(0, 1.05, 0);
+  g.add(upperSwashplate);
+
+  // 4. Counter-Rotating Dual Rotor Assemblies
+  heli.lowerRotorGroup = new T.Group();
+  heli.lowerRotorGroup.position.set(0, 0.88, 0);
+  g.add(heli.lowerRotorGroup);
+
+  heli.upperRotorGroup = new T.Group();
+  heli.upperRotorGroup.position.set(0, 1.12, 0);
+  g.add(heli.upperRotorGroup);
+
+  function createBladePair(parentGroup, isUpper) {
+    const hub = new T.Mesh(new T.CylinderGeometry(0.048, 0.048, 0.04, 16), titaniumMat);
+    parentGroup.add(hub);
+
+    [-1, 1].forEach(dir => {
+      const bladeHolder = new T.Group();
+      bladeHolder.rotation.y = (dir === 1) ? 0 : Math.PI;
+
+      const bladeLen = 0.62;
+      const bladeMesh = new T.Mesh(new T.BoxGeometry(0.08, 0.008, bladeLen), carbonFiberMat);
+      bladeMesh.position.set(0, 0, bladeLen * 0.5 + 0.04);
+      bladeMesh.rotation.x = isUpper ? -0.12 : 0.12;
+      bladeMesh.castShadow = true;
+      bladeHolder.add(bladeMesh);
+
+      const tipMesh = new T.Mesh(new T.CylinderGeometry(0.038, 0.004, 0.008, 8), carbonFiberMat);
+      tipMesh.rotation.z = Math.PI / 2;
+      tipMesh.position.set(0, 0, bladeLen + 0.04);
+      bladeHolder.add(tipMesh);
+
+      parentGroup.add(bladeHolder);
+    });
+
+    // Rotor Motion Blur Disc
+    const blurDisc = new T.Mesh(
+      new T.CylinderGeometry(0.68, 0.68, 0.002, 32),
+      new T.MeshBasicMaterial({ color: 0x1f242d, transparent: true, opacity: 0.0, depthWrite: false })
+    );
+    parentGroup.add(blurDisc);
+    parentGroup.userData.blurDisc = blurDisc;
+  }
+
+  createBladePair(heli.lowerRotorGroup, false);
+  createBladePair(heli.upperRotorGroup, true);
+
+  // 5. Solar Panel Array atop the Mast
+  const solarPanel = new T.Mesh(new T.BoxGeometry(0.54, 0.014, 0.18), solarCellMat);
+  solarPanel.position.set(0, 1.28, 0);
+  solarPanel.castShadow = true;
+  g.add(solarPanel);
+
+  const gridFrame = new T.Mesh(new T.BoxGeometry(0.55, 0.016, 0.19), new T.MeshStandardMaterial({
+    color: 0x5a6068,
+    roughness: 0.4,
+    metalness: 0.8
+  }));
+  gridFrame.position.set(0, 1.28, 0);
+  solarPanel.add(gridFrame);
+
+  // Vertical Antenna Wire
+  const antenna = new T.Mesh(new T.CylinderGeometry(0.003, 0.003, 0.42, 8), titaniumMat);
+  antenna.position.set(0, 1.49, 0);
+  g.add(antenna);
+
+  // 6. Underside Cargo Clamp Mechanism
+  const cargoDock = new T.Group();
+  cargoDock.position.set(0, 0.22, 0);
+  const dockRing = new T.Mesh(new T.TorusGeometry(0.05, 0.012, 8, 16), new T.MeshStandardMaterial({
+    color: 0x69c9f2,
+    emissive: 0x004466,
+    roughness: 0.2,
+    metalness: 0.8
+  }));
+  dockRing.rotation.x = Math.PI / 2;
+  cargoDock.add(dockRing);
+  g.add(cargoDock);
+  heli.cargoDock = cargoDock;
+  heli.dockRing = dockRing;
+
+  // Attached Cargo Node
+  heli.attachedCargoNode = new T.Group();
+  heli.attachedCargoNode.position.set(0, -0.42, 0);
+  g.add(heli.attachedCargoNode);
+}
+
+// Procedural 3D Mars Research Base Builder
+function buildMarsBase(parent) {
+  if (marsBaseGroup) {
+    parent.remove(marsBaseGroup);
+  }
+  marsBaseGroup = new T.Group();
+  parent.add(marsBaseGroup);
+
+  const bx = -45, bz = -35;
+  const by = getTerrainHeight(bx, bz);
+
+  const whiteMat = new T.MeshStandardMaterial({
+    color: 0xf0f2f5,
+    roughness: 0.32,
+    metalness: 0.22,
+    bumpMap: NOISE_TEX,
+    bumpScale: 0.05
+  });
+
+  const darkMat = new T.MeshStandardMaterial({
+    color: 0x1f2733,
+    roughness: 0.5,
+    metalness: 0.6
+  });
+
+  const yellowHazardMat = new T.MeshStandardMaterial({
+    color: 0xf59e0b,
+    roughness: 0.4,
+    metalness: 0.3
+  });
+
+  const cyanGlassMat = new T.MeshStandardMaterial({
+    color: 0x38bdf8,
+    roughness: 0.12,
+    metalness: 0.85,
+    transparent: true,
+    opacity: 0.65
+  });
+
+  // 1. Helipad (Flight Operations Deck)
+  const padGroup = new T.Group();
+  padGroup.position.set(bx, by, bz);
+  
+  const padDeck = new T.Mesh(new T.CylinderGeometry(5.2, 5.5, 0.3, 16), darkMat);
+  padDeck.position.y = 0.15;
+  padDeck.receiveShadow = true;
+  padGroup.add(padDeck);
+
+  const padBorder = new T.Mesh(new T.TorusGeometry(4.8, 0.18, 8, 32), yellowHazardMat);
+  padBorder.rotation.x = Math.PI / 2;
+  padBorder.position.y = 0.31;
+  padGroup.add(padBorder);
+
+  const padInner = new T.Mesh(new T.TorusGeometry(2.6, 0.12, 8, 32), new T.MeshBasicMaterial({ color: 0xffffff }));
+  padInner.rotation.x = Math.PI / 2;
+  padInner.position.y = 0.31;
+  padGroup.add(padInner);
+
+  // Painted [ H ]
+  const hBar1 = new T.Mesh(new T.BoxGeometry(0.3, 0.02, 2.8), new T.MeshBasicMaterial({ color: 0xffffff }));
+  hBar1.position.set(-0.85, 0.32, 0);
+  padGroup.add(hBar1);
+  const hBar2 = new T.Mesh(new T.BoxGeometry(0.3, 0.02, 2.8), new T.MeshBasicMaterial({ color: 0xffffff }));
+  hBar2.position.set(0.85, 0.32, 0);
+  padGroup.add(hBar2);
+  const hCross = new T.Mesh(new T.BoxGeometry(1.6, 0.02, 0.35), new T.MeshBasicMaterial({ color: 0xffffff }));
+  hCross.position.set(0, 0.32, 0);
+  padGroup.add(hCross);
+
+  // 8 Pulsing Inset Guidance Lights
+  const padLights = [];
+  for (let i = 0; i < 8; i++) {
+    const ang = (i / 8) * Math.PI * 2;
+    const lx = Math.cos(ang) * 4.9;
+    const lz = Math.sin(ang) * 4.9;
+    const bulb = new T.Mesh(new T.SphereGeometry(0.12, 8, 8), new T.MeshBasicMaterial({ color: (i % 2 === 0) ? 0x69c9f2 : 0xf59e0b }));
+    bulb.position.set(lx, 0.34, lz);
+    padGroup.add(bulb);
+    padLights.push(bulb);
+  }
+  padGroup.userData.lights = padLights;
+  marsBaseGroup.add(padGroup);
+
+  // 2. Central Research Habitat (Hab-01)
+  const hab1Group = new T.Group();
+  const h1x = bx + 6, h1z = bz - 16;
+  const h1y = getTerrainHeight(h1x, h1z);
+  hab1Group.position.set(h1x, h1y, h1z);
+
+  const habBody = new T.Mesh(new T.CylinderGeometry(5.8, 6.2, 4.2, 12), whiteMat);
+  habBody.position.y = 2.1;
+  habBody.castShadow = true;
+  habBody.receiveShadow = true;
+  hab1Group.add(habBody);
+
+  const cupola = new T.Mesh(new T.SphereGeometry(3.6, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.5), cyanGlassMat);
+  cupola.position.y = 4.2;
+  hab1Group.add(cupola);
+
+  const airlock = new T.Mesh(new T.BoxGeometry(2.2, 2.4, 2.6), whiteMat);
+  airlock.position.set(0, 1.2, 6.2);
+  hab1Group.add(airlock);
+  const airlockDoor = new T.Mesh(new T.BoxGeometry(1.4, 2.0, 0.1), darkMat);
+  airlockDoor.position.set(0, 1.2, 7.55);
+  hab1Group.add(airlockDoor);
+
+  marsBaseGroup.add(hab1Group);
+  rockColliders.push({ x: h1x, z: h1z, r: 6.8, mesh: habBody });
+
+  // 3. Secondary Greenhouse Hab (Hab-02) & Connecting Tunnel
+  const h2x = h1x + 15, h2z = h1z;
+  const h2y = getTerrainHeight(h2x, h2z);
+  const hab2Group = new T.Group();
+  hab2Group.position.set(h2x, h2y, h2z);
+
+  const ghBody = new T.Mesh(new T.CylinderGeometry(3.4, 3.4, 7.5, 16), whiteMat);
+  ghBody.rotation.z = Math.PI / 2;
+  ghBody.position.y = 2.6;
+  ghBody.castShadow = true;
+  hab2Group.add(ghBody);
+
+  const ghGlass = new T.Mesh(new T.CylinderGeometry(3.45, 3.45, 4.2, 16), new T.MeshStandardMaterial({
+    color: 0x4ade80,
+    emissive: 0x14532d,
+    roughness: 0.2,
+    transparent: true,
+    opacity: 0.45
+  }));
+  ghGlass.rotation.z = Math.PI / 2;
+  ghGlass.position.y = 2.6;
+  hab2Group.add(ghGlass);
+  marsBaseGroup.add(hab2Group);
+  rockColliders.push({ x: h2x, z: h2z, r: 4.8, mesh: ghBody });
+
+  const tunnelLen = 8.5;
+  const tunnel = new T.Mesh(new T.CylinderGeometry(1.2, 1.2, tunnelLen, 12), whiteMat);
+  tunnel.rotation.z = Math.PI / 2;
+  tunnel.position.set(h1x + tunnelLen * 0.5 + 2.5, (h1y + h2y) * 0.5 + 1.8, h1z);
+  marsBaseGroup.add(tunnel);
+
+  // 4. Communications Lattice Mast
+  const cmx = bx + 12, cmz = bz - 28;
+  const cmy = getTerrainHeight(cmx, cmz);
+  const towerGroup = new T.Group();
+  towerGroup.position.set(cmx, cmy, cmz);
+
+  const mastTower = new T.Mesh(new T.CylinderGeometry(0.35, 1.1, 15, 6), new T.MeshStandardMaterial({
+    color: 0xd1d5db,
+    metalness: 0.85,
+    roughness: 0.3
+  }));
+  mastTower.position.y = 7.5;
+  mastTower.castShadow = true;
+  towerGroup.add(mastTower);
+
+  const commDish = new T.Mesh(new T.CylinderGeometry(2.2, 0.4, 0.8, 16), new T.MeshStandardMaterial({
+    color: 0xf3f4f6,
+    metalness: 0.6,
+    roughness: 0.3
+  }));
+  commDish.position.set(0, 14.5, 0);
+  commDish.rotation.x = 0.55;
+  commDish.rotation.y = -0.3;
+  towerGroup.add(commDish);
+
+  const beaconLight = new T.Mesh(new T.SphereGeometry(0.24, 8, 8), new T.MeshBasicMaterial({ color: 0xef4444 }));
+  beaconLight.position.set(0, 15.6, 0);
+  towerGroup.add(beaconLight);
+  towerGroup.userData.beaconLight = beaconLight;
+
+  marsBaseGroup.add(towerGroup);
+  rockColliders.push({ x: cmx, z: cmz, r: 1.8, mesh: mastTower });
+
+  // 5. Photovoltaic Solar Arrays
+  [-1, 1].forEach(side => {
+    const sax = bx + 22, saz = bz - 8 + side * 9;
+    const say = getTerrainHeight(sax, saz);
+    const solarGroup = new T.Group();
+    solarGroup.position.set(sax, say, saz);
+    solarGroup.rotation.y = -0.4;
+
+    const baseStilt = new T.Mesh(new T.CylinderGeometry(0.12, 0.14, 1.6, 8), darkMat);
+    baseStilt.position.y = 0.8;
+    solarGroup.add(baseStilt);
+
+    const panelDeck = new T.Mesh(new T.BoxGeometry(7.2, 0.1, 2.6), new T.MeshStandardMaterial({
+      color: 0x111c38,
+      metalness: 0.7,
+      roughness: 0.2
+    }));
+    panelDeck.position.set(0, 1.8, 0);
+    panelDeck.rotation.x = 0.55;
+    panelDeck.castShadow = true;
+    solarGroup.add(panelDeck);
+
+    marsBaseGroup.add(solarGroup);
+    rockColliders.push({ x: sax, z: saz, r: 3.2, mesh: panelDeck });
+  });
+
+  // 6. Cargo Logistics & Staging Platform
+  const clx = -58, clz = -32;
+  const cly = getTerrainHeight(clx, clz);
+  const cargoBayGroup = new T.Group();
+  cargoBayGroup.position.set(clx, cly, clz);
+
+  const stagingPad = new T.Mesh(new T.BoxGeometry(6.5, 0.35, 6.5), darkMat);
+  stagingPad.position.y = 0.18;
+  stagingPad.receiveShadow = true;
+  cargoBayGroup.add(stagingPad);
+
+  const pickupPedestal = new T.Mesh(new T.CylinderGeometry(1.4, 1.6, 0.45, 12), yellowHazardMat);
+  pickupPedestal.position.set(0, 0.45, 0);
+  cargoBayGroup.add(pickupPedestal);
+
+  const holoBeam = new T.Mesh(new T.CylinderGeometry(1.2, 1.2, 6.0, 16, 1, true), new T.MeshBasicMaterial({
+    color: 0x69c9f2,
+    transparent: true,
+    opacity: 0.25,
+    depthWrite: false
+  }));
+  holoBeam.position.set(0, 3.45, 0);
+  cargoBayGroup.add(holoBeam);
+
+  [-1.8, 1.8].forEach(cx => {
+    const crate = new T.Mesh(new T.BoxGeometry(1.2, 1.2, 1.4), whiteMat);
+    crate.position.set(cx, 0.85, -1.8);
+    crate.castShadow = true;
+    cargoBayGroup.add(crate);
+  });
+
+  marsBaseGroup.add(cargoBayGroup);
+  marsBaseGroup.userData.cargoBayPos = { x: clx, y: cly + 0.68, z: clz };
+
+  // 7. Field Deployment Outpost Sites (Alpha, Beta, Gamma)
+  const createDeploymentZone = (id, name, x, z, colHex) => {
+    const gy = getTerrainHeight(x, z);
+    const zoneGroup = new T.Group();
+    zoneGroup.position.set(x, gy, z);
+    zoneGroup.name = id;
+
+    const ring = new T.Mesh(new T.TorusGeometry(3.2, 0.12, 8, 32), new T.MeshBasicMaterial({
+      color: colHex,
+      transparent: true,
+      opacity: 0.85
+    }));
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = 0.15;
+    zoneGroup.add(ring);
+
+    const beam = new T.Mesh(new T.CylinderGeometry(0.15, 0.15, 18, 8, 1, true), new T.MeshBasicMaterial({
+      color: colHex,
+      transparent: true,
+      opacity: 0.35,
+      depthWrite: false
+    }));
+    beam.position.y = 9.0;
+    zoneGroup.add(beam);
+
+    const podMount = new T.Mesh(new T.ConeGeometry(0.8, 1.4, 4), darkMat);
+    podMount.position.set(0, 0.7, -2.6);
+    zoneGroup.add(podMount);
+
+    marsBaseGroup.add(zoneGroup);
+    return zoneGroup;
+  };
+
+  createDeploymentZone('zone-alpha', 'Outpost Alpha (Atmospheric)', -10, -50, 0x38bdf8);
+  createDeploymentZone('zone-beta', 'Outpost Beta (Seismic Ridge)', -75, 40, 0xf59e0b);
+  createDeploymentZone('zone-gamma', 'Outpost Gamma (Crater Rim)', -35, 75, 0xa855f7);
+}
+
+// 3D Cargo Pod Builder
+function createCargoPodMesh(name = 'Atmospheric Sensor Pod', colorHex = 0x38bdf8) {
+  const pod = new T.Group();
+  pod.name = name;
+
+  // Hexagonal carbon-composite container
+  const bodyGeo = new T.CylinderGeometry(0.35, 0.35, 0.28, 6);
+  const bodyMat = new T.MeshStandardMaterial({
+    color: 0x272c35,
+    roughness: 0.35,
+    metalness: 0.7
+  });
+  const body = new T.Mesh(bodyGeo, bodyMat);
+  body.castShadow = true;
+  pod.add(body);
+
+  // Gold thermal foil band
+  const band = new T.Mesh(new T.CylinderGeometry(0.36, 0.36, 0.08, 6), new T.MeshStandardMaterial({
+    color: 0xdfb152,
+    metalness: 0.9,
+    roughness: 0.2
+  }));
+  pod.add(band);
+
+  // Top magnetic docking ring
+  const dockRing = new T.Mesh(new T.TorusGeometry(0.065, 0.015, 8, 16), new T.MeshStandardMaterial({
+    color: colorHex,
+    emissive: colorHex,
+    roughness: 0.2,
+    metalness: 0.9
+  }));
+  dockRing.rotation.x = Math.PI / 2;
+  dockRing.position.y = 0.15;
+  pod.add(dockRing);
+
+  // Status LED beacon
+  const led = new T.Mesh(new T.SphereGeometry(0.035, 8, 8), new T.MeshBasicMaterial({ color: colorHex }));
+  led.position.set(0, 0.17, 0.22);
+  pod.add(led);
+
+  return pod;
+}
+
+// Set up Cargo for Missions
+function setupMissionCargo(missionIndex) {
+  if (activeCargoPod && activeCargoPod.parent) {
+    activeCargoPod.parent.remove(activeCargoPod);
+  }
+  activeCargoPod = null;
+
+  if (missionIndex === 2) {
+    // Flight 03: Atmospheric Sensor
+    activeCargoPod = createCargoPodMesh('Alpha Atmospheric Pod', 0x38bdf8);
+    const cbPos = marsBaseGroup ? marsBaseGroup.userData.cargoBayPos : { x: -58, y: 1.2, z: -32 };
+    activeCargoPod.position.set(cbPos.x, cbPos.y + 0.14, cbPos.z);
+    worldGroup.add(activeCargoPod);
+  } else if (missionIndex === 3) {
+    // Flight 04: Seismic Sensor Probe
+    activeCargoPod = createCargoPodMesh('Deep Seismic Probe', 0xf59e0b);
+    const cbPos = marsBaseGroup ? marsBaseGroup.userData.cargoBayPos : { x: -58, y: 1.2, z: -32 };
+    activeCargoPod.position.set(cbPos.x, cbPos.y + 0.14, cbPos.z);
+    worldGroup.add(activeCargoPod);
+  }
+}
+
+// Interactive Cargo Clamp Action (E key or Mobile CARGO button)
+function handleHeliCargoAction() {
+  if (state !== 'play' || gameMode !== 'heli') return;
+
+  const altimeter = Math.max(0, heli.y - getTerrainHeight(heli.x, heli.z) - 0.38);
+
+  if (!heli.isCarryingCargo) {
+    // Check pickup proximity at Cargo Logistics Bay
+    const cbPos = marsBaseGroup ? marsBaseGroup.userData.cargoBayPos : { x: -58, y: 1.2, z: -32 };
+    const distToBay = Math.hypot(heli.x - cbPos.x, heli.z - cbPos.z);
+
+    if (activeCargoPod && distToBay < 5.5 && altimeter >= 0.2 && altimeter <= 4.0 && Math.hypot(heli.vx, heli.vz) < 5.0) {
+      // Attach Cargo Pod to Helicopter
+      if (activeCargoPod.parent) activeCargoPod.parent.remove(activeCargoPod);
+      activeCargoPod.position.set(0, 0, 0);
+      heli.attachedCargoNode.add(activeCargoPod);
+      heli.isCarryingCargo = true;
+      heli.cargo = activeCargoPod;
+
+      playCargoLockSFX();
+      triggerScreenFlash('#38bdf8');
+      
+      const m = MS_HELI[mi];
+      const curStep = m.steps[stepIndex];
+      if (curStep && (curStep.k === 'cargo_pickup' || curStep.k === 'cargo_pickup_remote')) {
+        advanceMissionStep();
+      }
+    } else {
+      displayEducationalCard(['Cargo Pickup Procedure', 'Hover low (< 2.5m) directly over the yellow Cargo Logistics Pedestal at low speed (< 2.0 m/s), then tap CARGO / press E.']);
+    }
+  } else {
+    // Release Cargo Pod into designated Target Zone
+    let validDrop = false;
+    let targetZone = null;
+    if (mi === 2) {
+      // Outpost Alpha: [-10, -50]
+      const distToAlpha = Math.hypot(heli.x - (-10), heli.z - (-50));
+      if (distToAlpha < 5.5 && altimeter < 4.5 && Math.hypot(heli.vx, heli.vz) < 4.5) {
+        validDrop = true;
+        targetZone = { x: -10, z: -50 };
+      }
+    } else if (mi === 3) {
+      // Outpost Beta: [-75, 40] or Outpost Gamma: [-35, 75]
+      const distToBeta = Math.hypot(heli.x - (-75), heli.z - 40);
+      const distToGamma = Math.hypot(heli.x - (-35), heli.z - 75);
+      if (distToBeta < 3.5 && altimeter < 3.0 && stepIndex === 1) {
+        validDrop = true;
+        targetZone = { x: -75, z: 40 };
+      } else if (distToGamma < 3.5 && altimeter < 3.0 && stepIndex === 3) {
+        validDrop = true;
+        targetZone = { x: -35, z: 75 };
+      }
+    }
+
+    if (validDrop && targetZone) {
+      // Release Cargo into Target Zone
+      heli.attachedCargoNode.remove(heli.cargo);
+      const gy = getTerrainHeight(targetZone.x, targetZone.z);
+      heli.cargo.position.set(targetZone.x, gy + 0.15, targetZone.z);
+      worldGroup.add(heli.cargo);
+      
+      heli.isCarryingCargo = false;
+      heli.cargo = null;
+
+      playDeliverySuccessSFX();
+      triggerScreenFlash('#4ade80');
+      advanceMissionStep();
+    } else {
+      displayEducationalCard(['Cargo Delivery Release', 'Hover low (< 2.5m) inside the glowing target boundary ring to release the payload securely.']);
+    }
+  }
+}
+
+// Auto-Hover Toggle (X key or Mobile HOVER button)
+function toggleHeliAutoHover() {
+  if (state !== 'play' || gameMode !== 'heli') return;
+  heli.hoverMode = !heli.hoverMode;
+  if (heli.hoverMode) {
+    const alt = Math.max(0, heli.y - getTerrainHeight(heli.x, heli.z) - 0.38);
+    heli.targetHoverAlt = Math.max(2.5, alt);
+    playBeep(660, 0.12, 0.25);
+  } else {
+    playBeep(330, 0.12, 0.2);
+  }
+}
+
+// Reset Helicopter to Helipad
+function resetHeliPosition() {
+  if (gameMode !== 'heli') return;
+  heli.x = -45;
+  heli.z = -35;
+  heli.y = getTerrainHeight(-45, -35) + 0.66;
+  heli.vx = heli.vy = heli.vz = 0;
+  heli.pitch = heli.roll = heli.yaw = 0;
+  heli.flightState = 'landed';
+  heli.hoverMode = false;
+  triggerScreenFlash('#69c9f2');
+  playBeep(440, 0.2, 0.3);
+}
+
+// Helicopter Audio Synthesizer & SFX
+function playCargoLockSFX() {
+  if (!AC) return;
+  try {
+    const osc = AC.createOscillator();
+    const g = AC.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(520, AC.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1180, AC.currentTime + 0.18);
+    g.gain.setValueAtTime(0.3, AC.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + 0.22);
+    osc.connect(g).connect(masterGain);
+    osc.start();
+    osc.stop(AC.currentTime + 0.22);
+  } catch(e) {}
+}
+
+function playDeliverySuccessSFX() {
+  if (!AC) return;
+  try {
+    [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+      const osc = AC.createOscillator();
+      const g = AC.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      const startTime = AC.currentTime + idx * 0.08;
+      g.gain.setValueAtTime(0.24, startTime);
+      g.gain.exponentialRampToValueAtTime(0.001, startTime + 0.35);
+      osc.connect(g).connect(masterGain);
+      osc.start(startTime);
+      osc.stop(startTime + 0.35);
+    });
+  } catch(e) {}
+}
+
+function updateHeliAudio(dt) {
+  if (!AC || !heliRotorGain) return;
+  if (gameMode === 'heli') {
+    const targetFreq = 34 + heli.rotorRpm * 46;
+    heliRotorOsc1.frequency.setValueAtTime(targetFreq, AC.currentTime);
+    heliRotorOsc2.frequency.setValueAtTime(targetFreq * 2, AC.currentTime);
+    
+    const flightVol = (heli.flightState === 'landed' ? 0.0 : 0.14) * heli.rotorRpm;
+    heliRotorGain.gain.setValueAtTime(flightVol, AC.currentTime);
+    
+    // Silence rover motor when flying
+    if (motorGain) motorGain.gain.setValueAtTime(0, AC.currentTime);
+    if (motorNoiseGain) motorNoiseGain.gain.setValueAtTime(0, AC.currentTime);
+  } else {
+    heliRotorGain.gain.setValueAtTime(0, AC.currentTime);
+  }
+}
+
+// Unified Dust System - Zero Memory Leaks
+function triggerHeliDustRing(x, gy, z, intensity) {
+  if (!dustParticles || !dustParticles.userData || !dustParticles.userData.pool) return;
+  const pool = dustParticles.userData.pool;
+  if (pool.length >= 300) return; // Hard capacity cap
+  for (let i = 0; i < 2; i++) {
+    const ang = Math.random() * Math.PI * 2;
+    const r = 0.6 + Math.random() * 2.2;
+    pool.push({
+      x: x + Math.cos(ang) * r,
+      y: gy + 0.08 + Math.random() * 0.15,
+      z: z + Math.sin(ang) * r,
+      vy: 0.4 + Math.random() * 0.6 * intensity,
+      life: 0.8 + Math.random() * 0.6
+    });
+  }
+}
+
+function updateDustSystem(dt) {
+  if (!dustParticles || !dustParticles.userData || !dustParticles.userData.pool) return;
+  const pool = dustParticles.userData.pool;
+  const isMoon = (world === 'moon');
+  const dustPosAttr = dustParticles.geometry.attributes.position;
+  const dustLimit = dustPosAttr.count;
+  
+  for (let i = 0; i < dustLimit; i++) {
+    const dp = pool[i];
+    if (dp) {
+      dp.life -= dt;
+      dp.y += dp.vy * dt * (isMoon ? 1.3 : 1.0);
+      dp.x += (Math.random() - 0.5) * dt * (isMoon ? 0.1 : 0.8);
+      dustPosAttr.setXYZ(i, dp.x, dp.y, dp.z);
+    } else {
+      dustPosAttr.setXYZ(i, 0, -999, 0);
+    }
+  }
+  
+  while (pool.length && pool[0].life <= 0) pool.shift();
+  while (pool.length > dustLimit) pool.shift();
+  dustPosAttr.needsUpdate = true;
+}
+
+// Helicopter Flight Physics Loop - High Performance & Crisp Handling
+function updateHeliPhysics(dt) {
+  const m = MS_HELI[mi];
+  const curStep = m ? m.steps[stepIndex] : null;
+
+  // Keyboard + Mobile Touch Input Fusion
+  const keyFwd = (K.KeyW || K.ArrowUp ? 1 : 0) - (K.KeyS || K.ArrowDown ? 1 : 0);
+  const keyStrafe = (K.KeyD || K.ArrowRight ? 1 : 0) - (K.KeyA || K.ArrowLeft ? 1 : 0);
+  const keyYaw = (K.KeyE ? 1 : 0) - (K.KeyQ ? 1 : 0);
+  const keyClimb = (K.Space ? 1 : 0) || (touchHeliClimb ? 1 : 0);
+  const keyDescend = (K.ControlLeft || K.ControlRight ? 1 : 0) || (touchHeliDescend ? 1 : 0);
+  const isSprint = (K.ShiftLeft || K.ShiftRight || touchInput.sprint);
+  const sprintBoost = isSprint ? 1.65 : 1.0;
+
+  // Responsive Input with deadzone filtering
+  const fwdInput = clamp(keyFwd + touchInput.forward, -1, 1);
+  const strafeInput = clamp(keyStrafe - touchInput.steer, -1, 1);
+  const yawInput = keyYaw;
+
+  // Ground elevation calculation
+  const groundY = getTerrainHeight(heli.x, heli.z);
+  let effectiveGroundY = groundY;
+  if (Math.hypot(heli.x - (-45), heli.z - (-35)) < 5.2) {
+    effectiveGroundY = Math.max(effectiveGroundY, groundY + 0.28);
+  }
+  if (Math.hypot(heli.x - (-58), heli.z - (-32)) < 3.5) {
+    effectiveGroundY = Math.max(effectiveGroundY, groundY + 0.35);
+  }
+
+  const altimeter = Math.max(0, heli.y - effectiveGroundY - 0.38);
+
+  // Fast rotor spool-up (0.3s quick launch)
+  if (keyClimb > 0 || Math.abs(fwdInput) > 0.05 || Math.abs(strafeInput) > 0.05) {
+    if (heli.flightState === 'landed') heli.flightState = 'spooling';
+  }
+
+  if (heli.flightState === 'spooling') {
+    heli.rotorRpm = Math.min(1.0, heli.rotorRpm + dt * 3.5);
+    if (heli.rotorRpm >= 0.85) heli.flightState = 'in_flight';
+  } else if (heli.flightState === 'in_flight') {
+    heli.rotorRpm = Math.min(1.0, heli.rotorRpm + dt * 2.5);
+  } else if (heli.flightState === 'landed') {
+    heli.rotorRpm = Math.max(0.0, heli.rotorRpm - dt * 1.5);
+  }
+
+  // Counter-rotating rotor animation
+  const bladeRpmRate = heli.rotorRpm * 56.0;
+  if (heli.lowerRotorGroup) heli.lowerRotorGroup.rotation.y += bladeRpmRate * dt;
+  if (heli.upperRotorGroup) heli.upperRotorGroup.rotation.y -= bladeRpmRate * dt;
+
+  const blurAlpha = clamp((heli.rotorRpm - 0.45) * 1.4, 0, 0.48);
+  if (heli.lowerRotorGroup && heli.lowerRotorGroup.userData.blurDisc) {
+    heli.lowerRotorGroup.userData.blurDisc.material.opacity = blurAlpha;
+  }
+  if (heli.upperRotorGroup && heli.upperRotorGroup.userData.blurDisc) {
+    heli.upperRotorGroup.userData.blurDisc.material.opacity = blurAlpha;
+  }
+
+  // High-Performance Vertical Lift & Climb
+  let targetVy = 0;
+  if (heli.flightState === 'in_flight') {
+    if (keyClimb) {
+      targetVy = 7.5 * sprintBoost; // Fast 7.5 - 12 m/s vertical surge
+      heli.hoverMode = false;
+    } else if (keyDescend) {
+      targetVy = -5.0; // Responsive descent
+      heli.hoverMode = false;
+    } else if (heli.hoverMode) {
+      // Precision Proportional Auto-Hover Stabilization
+      const altErr = heli.targetHoverAlt - altimeter;
+      targetVy = clamp(altErr * 4.2, -4.5, 4.5);
+    } else {
+      targetVy = Math.sin(performance.now() * 0.002) * 0.08;
+    }
+
+    if (altimeter > 28.0 && targetVy > 0) targetVy = 0;
+
+    // Snappy vertical acceleration
+    heli.vy += (targetVy - heli.vy) * Math.min(1, dt * 7.5);
+    heli.y += heli.vy * dt;
+
+    const drainMultiplier = (heli.isCarryingCargo ? 1.2 : 1.0) * (isSprint ? 1.35 : 1.0);
+    heli.battery = Math.max(0, heli.battery - dt * 0.35 * drainMultiplier);
+  } else {
+    heli.vy = 0;
+  }
+
+  // Fast, Aerodynamic Pitch & Roll Tilt Controller
+  const targetPitch = clamp(fwdInput * 0.48 * (isSprint ? 1.3 : 1.0), -0.62, 0.62);
+  const targetRoll = clamp(strafeInput * 0.42, -0.52, 0.52);
+
+  if (heli.hoverMode && Math.abs(fwdInput) < 0.08 && Math.abs(strafeInput) < 0.08) {
+    // Rock-solid auto-hover station keeping
+    heli.vx *= Math.pow(0.72, dt * 60);
+    heli.vz *= Math.pow(0.72, dt * 60);
+    heli.pitch += (0 - heli.pitch) * Math.min(1, dt * 9.0);
+    heli.roll += (0 - heli.roll) * Math.min(1, dt * 9.0);
+  } else {
+    // Snappy 9x tilt response rate (no laggy float)
+    heli.pitch += (targetPitch - heli.pitch) * Math.min(1, dt * 8.5);
+    heli.roll += (targetRoll - heli.roll) * Math.min(1, dt * 8.5);
+
+    // High propulsive forward thrust (capable of 14-22 m/s high-speed flight)
+    const aForward = heli.pitch * 32.0;
+    const aStrafe = heli.roll * 26.0;
+
+    const ax = Math.sin(heli.yaw) * aForward + Math.cos(heli.yaw) * aStrafe;
+    const az = Math.cos(heli.yaw) * aForward - Math.sin(heli.yaw) * aStrafe;
+
+    heli.vx += ax * dt;
+    heli.vz += az * dt;
+
+    // Active counter-thrust braking: if player lets go or counters, stop crisply!
+    if (fwdInput === 0 && strafeInput === 0) {
+      heli.vx *= Math.pow(0.88, dt * 60);
+      heli.vz *= Math.pow(0.88, dt * 60);
+    } else {
+      heli.vx *= Math.pow(0.965, dt * 60);
+      heli.vz *= Math.pow(0.965, dt * 60);
+    }
+  }
+
+  // Coordinated banked turns: banking left/right smoothly couples into heading!
+  const bankYawCoupling = -heli.roll * 1.6;
+  heli.yaw += (yawInput * 2.8 + bankYawCoupling) * dt;
+
+  if (heli.flightState === 'in_flight') {
+    heli.x += heli.vx * dt;
+    heli.z += heli.vz * dt;
+  }
+
+  heli.x = clamp(heli.x, -210, 210);
+  heli.z = clamp(heli.z, -210, 210);
+
+  // Soft Ground Touchdown Detection
+  if (heli.y <= effectiveGroundY + 0.38) {
+    heli.y = effectiveGroundY + 0.38;
+    const impactSpeed = Math.abs(heli.vy);
+
+    if (heli.flightState === 'in_flight') {
+      if (impactSpeed < 2.0) {
+        heli.flightState = 'landed';
+        heli.vy = heli.vx = heli.vz = 0;
+        heli.pitch = heli.roll = 0;
+        playBeep(440, 0.15, 0.2);
+      } else {
+        triggerScreenFlash('#e4472f');
+        playBeep(120, 0.35, 0.4);
+        heli.battery = Math.max(0, heli.battery - 4);
+        heli.vy = 0.6;
+      }
+    }
+  }
+
+  // Update Helicopter 3D Object
+  heli.group.position.set(heli.x, heli.y, heli.z);
+  heli.group.rotation.set(0, heli.yaw, 0);
+  heli.group.rotateX(-heli.pitch);
+  heli.group.rotateZ(-heli.roll);
+
+  // Dynamic Underslung Cargo Pendulum Swing
+  if (heli.isCarryingCargo && heli.attachedCargoNode) {
+    heli.attachedCargoNode.rotation.x = -heli.pitch * 0.45;
+    heli.attachedCargoNode.rotation.z = -heli.roll * 0.45;
+  }
+
+  // Rotor Wash Dust Particles Ring
+  if (altimeter < 5.0 && heli.rotorRpm > 0.3) {
+    triggerHeliDustRing(heli.x, effectiveGroundY, heli.z, heli.rotorRpm * (1.0 - altimeter / 5.0));
+  }
+
+  // Checkpoint & Mission Step Logic
+  updateHeliMissionProgress(curStep, altimeter, dt);
+  updateHeliHudInstruments(altimeter);
+  updateHeliCamera(dt);
+  updateHeliAudio(dt);
+}
+
+// Helicopter Mission Objectives Progress Checker
+let hoverHoldTimer = 0;
+function updateHeliMissionProgress(curStep, altimeter, dt) {
+  if (!curStep) return;
+
+  if (curStep.k === 'takeoff') {
+    if (altimeter > 3.0) advanceMissionStep();
+  } else if (curStep.k === 'takeoff_high') {
+    if (altimeter > 8.0) advanceMissionStep();
+  } else if (curStep.k === 'hover') {
+    if (altimeter >= 4.0 && altimeter <= 8.0 && Math.hypot(heli.vx, heli.vz) < 1.2) {
+      hoverHoldTimer += dt;
+      if (hoverHoldTimer >= 4.0) {
+        hoverHoldTimer = 0;
+        advanceMissionStep();
+      }
+    } else {
+      hoverHoldTimer = Math.max(0, hoverHoldTimer - dt);
+    }
+  } else if (curStep.k === 'navcam') {
+    if (camViewMode === 2 && Math.hypot(heli.x - curStep.p[0][0], heli.z - curStep.p[0][1]) < 8.0) {
+      advanceMissionStep();
+    }
+  } else if (curStep.k === 'land') {
+    const targetPt = curStep.p[0];
+    const distToPad = Math.hypot(heli.x - targetPt[0], heli.z - targetPt[1]);
+    if (distToPad < 4.8 && heli.flightState === 'landed') {
+      advanceMissionStep();
+    }
+  } else if (curStep.k && curStep.k.startsWith('cargo_')) {
+    // Managed exclusively by handleHeliCargoAction (E key or CARGO touch button)
+    return;
+  } else if (curStep.p) {
+    const targetPt = curStep.p[0];
+    const dist = Math.hypot(heli.x - targetPt[0], heli.z - targetPt[1]);
+    const requiredAlt = curStep.alt || 5.0;
+    if (dist < 6.0 && Math.abs(altimeter - requiredAlt) < 4.5) {
+      advanceMissionStep();
+    }
+  }
+}
+
+// Helicopter Telemetry Instruments Update
+function updateHeliHudInstruments(altimeter) {
+  const horizontalSpeed = Math.hypot(heli.vx, heli.vz);
+  $('spd').textContent = horizontalSpeed.toFixed(1);
+  if ($('spd-unit')) $('spd-unit').textContent = 'm/s';
+  if ($('torque-lbl')) $('torque-lbl').textContent = 'BATTERY';
+  if ($('sprint-pct')) $('sprint-pct').textContent = `${Math.round(heli.battery)}%`;
+  
+  const sprintBar = $('sprint-bar').firstElementChild || $('sprint-bar').firstChild;
+  if (sprintBar) {
+    sprintBar.style.width = heli.battery + '%';
+    sprintBar.style.background = heli.battery > 30 ? 'linear-gradient(90deg, #10b981, #69C9F2)' : 'linear-gradient(90deg, #ef4444, #f59e0b)';
+  }
+
+  const statusEl = $('sprint-status');
+  if (statusEl) {
+    if (heli.hoverMode) {
+      statusEl.className = 'active';
+      statusEl.textContent = '⚓ AUTO-HOVER ACTIVE';
+    } else if (heli.isCarryingCargo) {
+      statusEl.className = 'active';
+      statusEl.textContent = '📦 CARGO SECURED';
+    } else {
+      statusEl.className = '';
+      statusEl.textContent = `ROTOR: ${Math.round(heli.rotorRpm * 2400)} RPM`;
+    }
+  }
+
+  // Heading & Altitude Badge
+  const compassDeg = ((-heli.yaw * 180 / Math.PI) % 360 + 360) % 360;
+  const cardinals = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+  const cardIndex = Math.round(compassDeg / 45) % 8;
+  $('comp').textContent = `HDG: ${cardinals[cardIndex]} ${Math.round(compassDeg)}°`;
+
+  const m = MS_HELI[mi];
+  const curStep = m ? m.steps[stepIndex] : null;
+  let targetPt = null;
+  if (curStep && curStep.p) {
+    targetPt = curStep.p[0];
+  } else if (curStep && (curStep.k === 'cargo_pickup' || curStep.k === 'cargo_pickup_remote')) {
+    targetPt = [-58, -32];
+  } else if (curStep && (curStep.k === 'cargo_drop' || curStep.k === 'cargo_drop_beta')) {
+    targetPt = (mi === 2) ? [-10, -50] : [-75, 40];
+  }
+
+  if (targetPt) {
+    activeTargetPos = targetPt;
+    beaconMesh.visible = beaconRing.visible = true;
+    const by = getTerrainHeight(targetPt[0], targetPt[1]);
+    beaconMesh.position.set(targetPt[0], by + 25, targetPt[1]);
+    beaconRing.position.set(targetPt[0], by + 0.35, targetPt[1]);
+    beaconRing.rotation.z += 0.02;
+
+    const dist = Math.hypot(heli.x - targetPt[0], heli.z - targetPt[1]);
+    const bearingRad = Math.atan2(targetPt[0] - heli.x, targetPt[1] - heli.z) - heli.yaw;
+    const bearingDeg = ((bearingRad * 180 / Math.PI) + 540) % 360 - 180;
+    const arrow = (bearingDeg > 12) ? '→' : (bearingDeg < -12 ? '←' : '↑');
+    $('dist').textContent = `TARGET ${dist.toFixed(0)}m ${arrow} (ALT ${altimeter.toFixed(1)}m)`;
+  } else {
+    activeTargetPos = null;
+    beaconMesh.visible = beaconRing.visible = false;
+    $('dist').textContent = `ALT: ${altimeter.toFixed(1)}m`;
+  }
+
+  // NAV-CAM HUD Reticle
+  if (camViewMode === 2) {
+    $('navcam-hud').style.display = 'flex';
+    $('nc-alt').textContent = `ALT: ${altimeter.toFixed(1)} m`;
+    $('nc-vs').textContent = `V/S: ${heli.vy >= 0 ? '+' : ''}${heli.vy.toFixed(1)} m/s`;
+  } else {
+    $('navcam-hud').style.display = 'none';
+  }
+}
+
+// Helicopter Camera Controller
+function updateHeliCamera(dt) {
+  if (camViewMode === 2) {
+    // Mode 2: Downward Navigation Camera (NAV-CAM)
+    cam.position.set(heli.x, heli.y - 0.15, heli.z);
+    cam.rotation.set(-Math.PI / 2, 0, heli.yaw);
+  } else if (camViewMode === 1) {
+    // Mode 1: Close Mast Chase Cam
+    const viewYaw = heli.yaw + Math.PI + orbitYaw;
+    const camX = heli.x + Math.sin(viewYaw) * 1.8;
+    const camZ = heli.z + Math.cos(viewYaw) * 1.8;
+    const camY = heli.y + 0.65 + Math.sin(orbitPitch) * 1.2;
+    cam.position.lerp(new T.Vector3(camX, camY, camZ), Math.min(1, dt * 7.5));
+    cam.lookAt(heli.x, heli.y + 0.5, heli.z);
+  } else {
+    // Mode 0: Smooth Third-Person Follow Chase Cam
+    const viewYaw = heli.yaw + Math.PI + orbitYaw;
+    const camDistTarget = 5.4;
+    const camRadius = Math.cos(orbitPitch) * camDistTarget;
+    const camHeight = Math.sin(orbitPitch) * camDistTarget;
+
+    const targetX = heli.x + Math.sin(viewYaw) * camRadius;
+    const targetZ = heli.z + Math.cos(viewYaw) * camRadius;
+    const terrainClampedY = Math.max(getTerrainHeight(targetX, targetZ) + 1.2, heli.y + camHeight + 1.2);
+
+    cam.position.lerp(new T.Vector3(targetX, terrainClampedY, targetZ), Math.min(1, dt * 6.5));
+    cam.lookAt(heli.x, heli.y + 0.4, heli.z);
+  }
+
+  // Update dynamic sunlight target
+  sunLight.position.set(heli.x - 70, heli.y + 55, heli.z - 35);
+  sunLight.target.position.set(heli.x, heli.y, heli.z);
+}
+
+// Tactical Minimap Radar for Helicopter
+function drawHeliMinimap() {
+  if (!mmCv) return;
+  const ctx = mmCv.getContext('2d');
+  const w = mmCv.width, h = mmCv.height;
+  const cx = w / 2, cy = h / 2;
+  const radarRange = 120.0; // 120m range
+  const scale = (w / 2 - 8) / radarRange;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // Dark circular background
+  ctx.fillStyle = '#060d16';
+  ctx.beginPath();
+  ctx.arc(cx, cy, cx - 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Range rings
+  ctx.strokeStyle = 'rgba(105, 201, 242, 0.2)';
+  ctx.lineWidth = 1;
+  [30, 60, 90, 120].forEach(r => {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * scale, 0, Math.PI * 2);
+    ctx.stroke();
+  });
+
+  // Base Helipad [ H ]
+  const hdx = (-45 - heli.x) * scale;
+  const hdz = (-35 - heli.z) * scale;
+  ctx.fillStyle = '#38bdf8';
+  ctx.font = 'bold 11px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('[H]', cx + hdx, cy + hdz + 4);
+
+  // Cargo Bay
+  const cdx = (-58 - heli.x) * scale;
+  const cdz = (-32 - heli.z) * scale;
+  ctx.fillStyle = '#f59e0b';
+  ctx.fillText('📦', cx + cdx, cy + cdz + 4);
+
+  // Active Flight Target / Waypoint Ring
+  const m = MS_HELI[mi];
+  const curStep = m ? m.steps[stepIndex] : null;
+  let targetPoint = null;
+  if (curStep && curStep.p) {
+    targetPoint = curStep.p[0];
+  } else if (curStep && (curStep.k === 'cargo_pickup' || curStep.k === 'cargo_pickup_remote')) {
+    targetPoint = [-58, -32];
+  } else if (curStep && (curStep.k === 'cargo_drop' || curStep.k === 'cargo_drop_beta')) {
+    targetPoint = (mi === 2) ? [-10, -50] : [-75, 40];
+  }
+
+  if (targetPoint) {
+    const tdx = (targetPoint[0] - heli.x) * scale;
+    const tdz = (targetPoint[1] - heli.z) * scale;
+    ctx.fillStyle = '#4ade80';
+    ctx.beginPath();
+    ctx.arc(cx + tdx, cy + tdz, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.stroke();
+  }
+
+  // Central Helicopter Aircraft Icon with Heading
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(-heli.yaw);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.moveTo(0, -9);
+  ctx.lineTo(6, 6);
+  ctx.lineTo(0, 3);
+  ctx.lineTo(-6, 6);
+  ctx.closePath();
+  ctx.fill();
+
+  // Spinning Rotor cross
+  ctx.strokeStyle = 'rgba(105, 201, 242, 0.7)';
+  ctx.lineWidth = 1.5;
+  const bladeAng = performance.now() * 0.02 * heli.rotorRpm;
+  ctx.beginPath();
+  ctx.moveTo(Math.cos(bladeAng) * 12, Math.sin(bladeAng) * 12);
+  ctx.lineTo(-Math.cos(bladeAng) * 12, -Math.sin(bladeAng) * 12);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+// Start Helicopter Flight Mission
+function startHeliMission() {
+  const m = MS_HELI[mi];
+  heli.x = m.s[0];
+  heli.z = m.s[1];
+  const groundY = getTerrainHeight(heli.x, heli.z);
+  heli.y = groundY + 0.66; // atop Helipad deck
+  heli.vx = heli.vy = heli.vz = 0;
+  heli.pitch = heli.roll = heli.pitchRate = heli.rollRate = 0;
+  heli.yaw = 0;
+  heli.rotorRpm = 0;
+  heli.flightState = 'landed';
+  heli.hoverMode = false;
+  heli.targetHoverAlt = 5.0;
+  heli.battery = 100;
+  heli.isCarryingCargo = false;
+  heli.cargo = null;
+  heli.attachedCargoNode.clear();
+
+  setupMissionCargo(mi);
+
+  stepIndex = 0;
+  completedSteps = 0;
+  knowledgeCount = 0;
+  missionStartTime = performance.now();
+  driveStartPosition = { x: heli.x, z: heli.z };
+
+  rover.group.visible = false;
+  heli.group.visible = true;
+
+  setHudVisible(true);
+  $('card').style.display = 'none';
+
+  if (m.cards && m.cards[0]) {
+    displayEducationalCard(m.cards[0]);
+  }
+
+  updateObjectiveUI();
+  updateHeliHudInstruments(0);
+
+  // Adapt mobile touch action buttons for flight
+  if ($('mb-sprint')) {
+    const lbl = $('mb-sprint').querySelector('.m-lbl');
+    if (lbl) lbl.textContent = 'CLIMB';
+    const icon = $('mb-sprint').querySelector('.m-icon');
+    if (icon) icon.textContent = '▲';
+  }
+  if ($('mb-brake')) {
+    const lbl = $('mb-brake').querySelector('.m-lbl');
+    if (lbl) lbl.textContent = 'DESCEND';
+    const icon = $('mb-brake').querySelector('.m-icon');
+    if (icon) icon.textContent = '▼';
+  }
+  if ($('mb-scan')) {
+    const lbl = $('mb-scan').querySelector('.m-lbl');
+    if (lbl) lbl.textContent = 'CARGO';
+    const icon = $('mb-scan').querySelector('.m-icon');
+    if (icon) icon.textContent = '📦';
+  }
+  if ($('mb-reset')) {
+    const lbl = $('mb-reset').querySelector('.m-lbl');
+    if (lbl) lbl.textContent = 'HOVER';
+    const icon = $('mb-reset').querySelector('.m-icon');
+    if (icon) icon.textContent = '⚓';
+  }
+}
+
+// Initialize Helicopter Procedural Model on Script Startup
+buildHelicopterModel();
+
+// ==================== HYBRID INPUT SYSTEM (KEYBOARD + TOUCH) ====================
+const K = {};
+const touchInput = {
+  forward: 0, // -1 (reverse) to +1 (forward)
+  steer: 0,   // -1 (right) to +1 (left)
+  brake: false,
+  sprint: false
+};
+
+let isPointerDragging = false;
+let orbitYaw = 0, orbitPitch = 0.32, camDist = 9.0;
+let camViewMode = 0;
+const CAM_MODES = ['ORBIT', 'CLOSE', 'MASTCAM'];
+
+// Keyboard listeners
+window.addEventListener('keydown', e => {
+  K[e.code] = true;
+  if (state === 'play') {
+    if (gameMode === 'heli') {
+      if (e.code === 'KeyE' || e.code === 'KeyF') handleHeliCargoAction();
+      if (e.code === 'KeyX') toggleHeliAutoHover();
+      if (e.code === 'KeyR') resetHeliPosition();
+      if (e.code === 'KeyC') cycleCameraMode();
+      if (e.code === 'KeyP') togglePause(true);
+    } else {
+      if (e.code === 'KeyE') interactScientificTarget();
+      if (e.code === 'KeyR') resetRoverPosition();
+      if (e.code === 'KeyC') cycleCameraMode();
+      if (e.code === 'KeyP') togglePause(true);
+    }
+  } else if (state === 'pause' && e.code === 'KeyP') {
+    togglePause(false);
+  }
+  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
+    e.preventDefault();
+  }
+});
+window.addEventListener('keyup', e => {
+  K[e.code] = false;
+});
+
+// Desktop Mouse Orbit & Zoom
+canvas.addEventListener('pointerdown', e => {
+  if (e.pointerType === 'mouse' && e.button === 0) isPointerDragging = true;
+});
+window.addEventListener('pointerup', e => {
+  if (e.pointerType === 'mouse') isPointerDragging = false;
+});
+window.addEventListener('pointermove', e => {
+  if (isPointerDragging && state === 'play' && e.pointerType === 'mouse') {
+    orbitYaw -= e.movementX * 0.0055;
+    orbitPitch = clamp(orbitPitch + e.movementY * 0.0035, 0.05, 1.25);
+  }
+});
+canvas.addEventListener('wheel', e => {
+  camDist = clamp(camDist + e.deltaY * 0.012, 3.2, 24.0);
+}, { passive: true });
+
+function cycleCameraMode() {
+  const modes = (gameMode === 'heli') ? CAM_MODES_HELI : CAM_MODES;
+  camViewMode = (camViewMode + 1) % modes.length;
+  $('cam-name').textContent = modes[camViewMode];
+  if (gameMode === 'heli') {
+    if (camViewMode === 0) camDist = 5.4;
+    if (camViewMode === 1) camDist = 2.4;
+    $('navcam-hud').style.display = (camViewMode === 2) ? 'flex' : 'none';
+    $('hasselblad-grid').style.display = 'none';
+  } else {
+    if (camViewMode === 0) camDist = 9.0;
+    if (camViewMode === 1) camDist = 4.2;
+    $('navcam-hud').style.display = 'none';
+    $('hasselblad-grid').style.display = (world === 'moon' && camViewMode === 2) ? 'block' : 'none';
+  }
+}
+
+// ==================== MOBILE TOUCH CONTROLS LOGIC ====================
+const joyZone = $('touch-joystick-zone');
+const joyBase = $('joystick-base');
+const joyKnob = $('joystick-knob');
+let joyTouchId = null;
+let joyCenter = { x: 0, y: 0 };
+const JOY_MAX_RADIUS = 46;
+
+// Virtual Joystick Touch Handling
+joyZone.addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (joyTouchId !== null) return;
+  const touch = e.changedTouches[0];
+  joyTouchId = touch.identifier;
+  const rect = joyBase.getBoundingClientRect();
+  joyCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+  updateJoystick(touch.clientX, touch.clientY);
+}, { passive: false });
+
+window.addEventListener('touchmove', e => {
+  for (let i = 0; i < e.changedTouches.length; i++) {
+    const t = e.changedTouches[i];
+    if (t.identifier === joyTouchId) {
+      updateJoystick(t.clientX, t.clientY);
+      e.preventDefault();
+      break;
+    }
+  }
+}, { passive: false });
+
+function handleJoyEnd(e) {
+  for (let i = 0; i < e.changedTouches.length; i++) {
+    if (e.changedTouches[i].identifier === joyTouchId) {
+      joyTouchId = null;
+      joyKnob.style.transform = 'translate(-50%, -50%)';
+      touchInput.forward = 0;
+      touchInput.steer = 0;
+      break;
+    }
+  }
+}
+window.addEventListener('touchend', handleJoyEnd);
+window.addEventListener('touchcancel', handleJoyEnd);
+
+function updateJoystick(clientX, clientY) {
+  const dx = clientX - joyCenter.x;
+  const dy = clientY - joyCenter.y;
+  const dist = Math.hypot(dx, dy);
+  const clampedDist = Math.min(dist, JOY_MAX_RADIUS);
+  const angle = Math.atan2(dy, dx);
+  
+  const knobX = Math.cos(angle) * clampedDist;
+  const knobY = Math.sin(angle) * clampedDist;
+  
+  joyKnob.style.transform = `translate(calc(-50% + ${knobX}px), calc(-50% + ${knobY}px))`;
+  
+  // -knobY is forward (+1 is up, -1 is down)
+  // -knobX is steer (+1 is left, -1 is right)
+  touchInput.forward = clamp(-knobY / JOY_MAX_RADIUS, -1, 1);
+  touchInput.steer = clamp(-knobX / JOY_MAX_RADIUS, -1, 1);
+}
+
+// Action Buttons Touch Handling
+function bindTouchButton(btnId, onDown, onUp) {
+  const btn = $(btnId);
+  if (!btn) return;
+  
+  const start = e => {
+    e.preventDefault();
+    btn.classList.add('active');
+    initAudioEngine();
+    if (AC && AC.state === 'suspended') AC.resume();
+    if (onDown) onDown();
+  };
+  const end = e => {
+    btn.classList.remove('active');
+    if (onUp) onUp();
+  };
+  
+  btn.addEventListener('touchstart', start, { passive: false });
+  btn.addEventListener('touchend', end);
+  btn.addEventListener('touchcancel', end);
+  btn.addEventListener('mousedown', start);
+  btn.addEventListener('mouseup', end);
+  btn.addEventListener('mouseleave', end);
+}
+
+// SPRINT / CLIMB Button (Hold or Tap for Overdrive in Rover / Climb in Heli)
+bindTouchButton('mb-sprint', 
+  () => { 
+    if (gameMode === 'heli') touchHeliClimb = true;
+    else touchInput.sprint = true; 
+  },
+  () => { 
+    if (gameMode === 'heli') touchHeliClimb = false;
+    else touchInput.sprint = false; 
+  }
+);
+
+// BRAKE / DESCEND Button (Brake in Rover / Descend in Heli)
+bindTouchButton('mb-brake',
+  () => { 
+    if (gameMode === 'heli') touchHeliDescend = true;
+    else touchInput.brake = true; 
+  },
+  () => { 
+    if (gameMode === 'heli') touchHeliDescend = false;
+    else touchInput.brake = false; 
+  }
+);
+
+// SCAN / CARGO Button
+$('mb-scan').addEventListener('click', e => {
+  e.preventDefault();
+  if (gameMode === 'heli') handleHeliCargoAction();
+  else interactScientificTarget();
+});
+$('mb-scan').addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (gameMode === 'heli') handleHeliCargoAction();
+  else interactScientificTarget();
+}, { passive: false });
+
+// RESET / HOVER Button
+$('mb-reset').addEventListener('click', e => {
+  e.preventDefault();
+  if (gameMode === 'heli') toggleHeliAutoHover();
+  else resetRoverPosition();
+});
+$('mb-reset').addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (gameMode === 'heli') toggleHeliAutoHover();
+  else resetRoverPosition();
+}, { passive: false });
+
+// CAM Button
+$('mb-cam').addEventListener('click', e => {
+  e.preventDefault();
+  cycleCameraMode();
+});
+$('mb-cam').addEventListener('touchstart', e => {
+  e.preventDefault();
+  cycleCameraMode();
+}, { passive: false });
+
+// Touch Camera Orbit & Pinch-to-Zoom on Canvas
+let camTouchId1 = null, camTouchId2 = null;
+let lastTouchPos = { x: 0, y: 0 };
+let lastPinchDist = 0;
+
+canvas.addEventListener('touchstart', e => {
+  for (let i = 0; i < e.changedTouches.length; i++) {
+    const t = e.changedTouches[i];
+    // Ignore touches in joystick zone or action buttons
+    if (t.clientX < 180 && t.clientY > window.innerHeight - 180) continue;
+    if (t.clientX > window.innerWidth - 180 && t.clientY > window.innerHeight - 200) continue;
+    
+    if (camTouchId1 === null) {
+      camTouchId1 = t.identifier;
+      lastTouchPos = { x: t.clientX, y: t.clientY };
+    } else if (camTouchId2 === null) {
+      camTouchId2 = t.identifier;
+      const t1 = Array.from(e.touches).find(tch => tch.identifier === camTouchId1);
+      if (t1) lastPinchDist = Math.hypot(t.clientX - t1.clientX, t.clientY - t1.clientY);
+    }
+  }
+}, { passive: true });
+
+canvas.addEventListener('touchmove', e => {
+  const touches = Array.from(e.touches);
+  const t1 = touches.find(t => t.identifier === camTouchId1);
+  const t2 = touches.find(t => t.identifier === camTouchId2);
+  
+  if (t1 && t2) {
+    // 2-Finger Pinch Zoom
+    const currentDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+    const delta = currentDist - lastPinchDist;
+    camDist = clamp(camDist - delta * 0.04, 3.2, 24.0);
+    lastPinchDist = currentDist;
+    e.preventDefault();
+  } else if (t1 && !t2 && state === 'play') {
+    // 1-Finger Orbit Drag
+    const dx = t1.clientX - lastTouchPos.x;
+    const dy = t1.clientY - lastTouchPos.y;
+    orbitYaw -= dx * 0.007;
+    orbitPitch = clamp(orbitPitch + dy * 0.004, 0.05, 1.25);
+    lastTouchPos = { x: t1.clientX, y: t1.clientY };
+    e.preventDefault();
+  }
+}, { passive: false });
+
+function handleCamTouchEnd(e) {
+  for (let i = 0; i < e.changedTouches.length; i++) {
+    const id = e.changedTouches[i].identifier;
+    if (id === camTouchId1) camTouchId1 = null;
+    if (id === camTouchId2) camTouchId2 = null;
+  }
+}
+canvas.addEventListener('touchend', handleCamTouchEnd);
+canvas.addEventListener('touchcancel', handleCamTouchEnd);
+
+// Setting toggle for mobile controls
+const toggleTouchBox = $('toggle-touch-controls');
+if (toggleTouchBox) {
+  const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (window.innerWidth <= 1024);
+  toggleTouchBox.checked = isTouchDevice;
+  $('mobile-controls').style.display = isTouchDevice ? 'block' : 'none';
+  toggleTouchBox.onchange = () => {
+    $('mobile-controls').style.display = toggleTouchBox.checked ? 'block' : 'none';
+  };
+}
+
+// ==================== WEB AUDIO ENGINE ====================
+let AC = null, windFilter = null, motorOsc = null, motorGain = null, motorNoiseGain = null, masterGain = null, noiseBuffer = null;
+
+function initAudioEngine() {
+  if (AC) return;
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) return;
+  AC = new AudioCtx();
+  
+  const nLen = AC.sampleRate * 2;
+  noiseBuffer = AC.createBuffer(1, nLen, AC.sampleRate);
+  const data = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < nLen; i++) data[i] = Math.random() * 2 - 1;
+  
+  masterGain = AC.createGain();
+  masterGain.gain.value = 0.5;
+  masterGain.connect(AC.destination);
+  
+  const windSrc = AC.createBufferSource();
+  windSrc.buffer = noiseBuffer;
+  windSrc.loop = true;
+  windFilter = AC.createBiquadFilter();
+  windFilter.type = 'bandpass';
+  windFilter.frequency.value = 350;
+  windFilter.Q.value = 0.6;
+  const windGain = AC.createGain();
+  windGain.gain.value = (world === 'moon') ? 0.0 : 0.12;
+  windSrc.connect(windFilter).connect(windGain).connect(masterGain);
+  windSrc.start();
+  
+  motorOsc = AC.createOscillator();
+  motorOsc.type = 'sawtooth';
+  motorOsc.frequency.value = 38;
+  const motorFilter = AC.createBiquadFilter();
+  motorFilter.type = 'lowpass';
+  motorFilter.frequency.value = 220;
+  motorGain = AC.createGain();
+  motorGain.gain.value = 0;
+  motorOsc.connect(motorFilter).connect(motorGain).connect(masterGain);
+  motorOsc.start();
+  
+  const wheelSrc = AC.createBufferSource();
+  wheelSrc.buffer = noiseBuffer;
+  wheelSrc.loop = true;
+  const wheelFilter = AC.createBiquadFilter();
+  wheelFilter.type = 'highpass';
+  wheelFilter.frequency.value = 1600;
+  motorNoiseGain = AC.createGain();
+  motorNoiseGain.gain.value = 0;
+  wheelSrc.connect(wheelFilter).connect(motorNoiseGain).connect(masterGain);
+  wheelSrc.start();
+
+  // Helicopter Dual Rotor Synthesizer
+  heliRotorOsc1 = AC.createOscillator();
+  heliRotorOsc1.type = 'sawtooth';
+  heliRotorOsc1.frequency.value = 34;
+  heliRotorOsc2 = AC.createOscillator();
+  heliRotorOsc2.type = 'triangle';
+  heliRotorOsc2.frequency.value = 68;
+  heliRotorFilter = AC.createBiquadFilter();
+  heliRotorFilter.type = 'lowpass';
+  heliRotorFilter.frequency.value = 260;
+  heliRotorGain = AC.createGain();
+  heliRotorGain.gain.value = 0;
+  heliRotorOsc1.connect(heliRotorFilter);
+  heliRotorOsc2.connect(heliRotorFilter);
+  heliRotorFilter.connect(heliRotorGain).connect(masterGain);
+  heliRotorOsc1.start();
+  heliRotorOsc2.start();
+}
+
+function playBeep(freq, dur = 0.15, vol = 0.15) {
+  if (!AC) return;
+  try {
+    const osc = AC.createOscillator();
+    const g = AC.createGain();
+    osc.frequency.value = freq;
+    g.gain.setValueAtTime(vol, AC.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + dur);
+    osc.connect(g).connect(masterGain);
+    osc.start();
+    osc.stop(AC.currentTime + dur);
+  } catch(e) {}
+}
+
+$('vol').oninput = e => {
+  if (masterGain) masterGain.gain.value = $('mute').checked ? 0 : +e.target.value;
+};
+$('mute').onchange = () => {
+  if (masterGain) masterGain.gain.value = $('mute').checked ? 0 : +$('vol').value;
+};
+
+// ==================== TACTICAL MINIMAP RADAR ====================
+const mmCv = $('minimap-cv');
+const mmCtx = mmCv.getContext('2d');
+let radarSweepAngle = 0;
+
+function drawMinimap() {
+  const w = mmCv.width, h = mmCv.height;
+  const cx = w / 2, cy = h / 2;
+  const radius = w / 2 - 4;
+  const MAP_WORLD_RANGE = 75;
+  const worldToMap = (wx, wz) => {
+    const dx = wx - rover.x;
+    const dz = wz - rover.z;
+    return [cx + (dx / MAP_WORLD_RANGE) * radius, cy + (dz / MAP_WORLD_RANGE) * radius];
+  };
+  
+  mmCtx.clearRect(0, 0, w, h);
+  
+  mmCtx.save();
+  mmCtx.beginPath();
+  mmCtx.arc(cx, cy, radius, 0, Math.PI * 2);
+  mmCtx.clip();
+  
+  mmCtx.fillStyle = (world === 'moon') ? '#04070d' : '#140c08';
+  mmCtx.fillRect(0, 0, w, h);
+  
+  mmCtx.strokeStyle = 'rgba(105, 201, 242, 0.2)';
+  mmCtx.lineWidth = 1.5;
+  [0.33, 0.66, 1.0].forEach(frac => {
+    mmCtx.beginPath();
+    mmCtx.arc(cx, cy, radius * frac, 0, Math.PI * 2);
+    mmCtx.stroke();
+  });
+  
+  mmCtx.strokeStyle = 'rgba(105, 201, 242, 0.15)';
+  mmCtx.beginPath();
+  mmCtx.moveTo(cx, 0); mmCtx.lineTo(cx, h);
+  mmCtx.moveTo(0, cy); mmCtx.lineTo(w, cy);
+  mmCtx.stroke();
+  
+  radarSweepAngle += 0.045;
+  const sweepGrad = mmCtx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+  sweepGrad.addColorStop(0, 'rgba(105, 201, 242, 0.25)');
+  sweepGrad.addColorStop(1, 'rgba(105, 201, 242, 0)');
+  mmCtx.fillStyle = sweepGrad;
+  mmCtx.beginPath();
+  mmCtx.moveTo(cx, cy);
+  mmCtx.arc(cx, cy, radius, radarSweepAngle, radarSweepAngle + 0.65);
+  mmCtx.closePath();
+  mmCtx.fill();
+  
+  CRATERS.forEach(([crx, crz, crR]) => {
+    const [mx, my] = worldToMap(crx, crz);
+    const mR = (crR / MAP_WORLD_RANGE) * radius;
+    mmCtx.strokeStyle = (world === 'moon') ? 'rgba(105, 201, 242, 0.35)' : 'rgba(228, 125, 84, 0.4)';
+    mmCtx.lineWidth = 1.5;
+    mmCtx.beginPath();
+    mmCtx.arc(mx, my, mR, 0, Math.PI * 2);
+    mmCtx.stroke();
+  });
+  
+  rockColliders.forEach(rock => {
+    const dist = Math.hypot(rock.x - rover.x, rock.z - rover.z);
+    if (dist < MAP_WORLD_RANGE) {
+      const [mx, my] = worldToMap(rock.x, rock.z);
+      mmCtx.fillStyle = 'rgba(168, 184, 202, 0.55)';
+      mmCtx.beginPath();
+      mmCtx.arc(mx, my, Math.max(2, rock.r * 1.5), 0, Math.PI * 2);
+      mmCtx.fill();
+    }
+  });
+  
+  if (apolloLanderGroup) {
+    const [lx, ly] = worldToMap(apolloLanderGroup.position.x, apolloLanderGroup.position.z);
+    mmCtx.fillStyle = '#f59e0b';
+    mmCtx.beginPath();
+    mmCtx.arc(lx, ly, 4, 0, Math.PI * 2);
+    mmCtx.fill();
+  }
+  
+  if (targetMesh) {
+    const [tx, ty] = worldToMap(targetMesh.position.x, targetMesh.position.z);
+    mmCtx.fillStyle = '#69c9f2';
+    mmCtx.beginPath();
+    mmCtx.moveTo(tx, ty - 6);
+    mmCtx.lineTo(tx + 6, ty);
+    mmCtx.lineTo(tx, ty + 6);
+    mmCtx.lineTo(tx - 6, ty);
+    mmCtx.closePath();
+    mmCtx.fill();
+  }
+  
+  if (activeTargetPos) {
+    const [bx, by] = worldToMap(activeTargetPos[0], activeTargetPos[1]);
+    const pulse = 4 + Math.sin(performance.now() * 0.008) * 2;
+    mmCtx.strokeStyle = '#e47d54';
+    mmCtx.lineWidth = 2.5;
+    mmCtx.beginPath();
+    mmCtx.arc(bx, by, pulse, 0, Math.PI * 2);
+    mmCtx.stroke();
+    
+    const distToBeacon = Math.hypot(bx - cx, by - cy);
+    if (distToBeacon > radius - 8) {
+      const angle = Math.atan2(by - cy, bx - cx);
+      const edgeX = cx + Math.cos(angle) * (radius - 8);
+      const edgeY = cy + Math.sin(angle) * (radius - 8);
+      mmCtx.fillStyle = '#e47d54';
+      mmCtx.beginPath();
+      mmCtx.arc(edgeX, edgeY, 4, 0, Math.PI * 2);
+      mmCtx.fill();
+    }
+  }
+  
+  mmCtx.save();
+  mmCtx.translate(cx, cy);
+  mmCtx.rotate(-rover.yaw + Math.PI);
+  
+  mmCtx.fillStyle = '#69c9f2';
+  mmCtx.beginPath();
+  mmCtx.moveTo(0, -9);
+  mmCtx.lineTo(6, 7);
+  mmCtx.lineTo(0, 4);
+  mmCtx.lineTo(-6, 7);
+  mmCtx.closePath();
+  mmCtx.fill();
+  
+  mmCtx.fillStyle = '#e47d54';
+  mmCtx.beginPath();
+  mmCtx.arc(0, 0, 2.5, 0, Math.PI * 2);
+  mmCtx.fill();
+  mmCtx.restore();
+  
+  mmCtx.restore();
+  
+  mmCtx.strokeStyle = 'rgba(105, 201, 242, 0.6)';
+  mmCtx.lineWidth = 2;
+  mmCtx.beginPath();
+  mmCtx.arc(cx, cy, radius, 0, Math.PI * 2);
+  mmCtx.stroke();
+  
+  mmCtx.fillStyle = '#69c9f2';
+  mmCtx.font = 'bold 9px monospace';
+  mmCtx.textAlign = 'center';
+  mmCtx.textBaseline = 'middle';
+  mmCtx.fillText('N', cx, 10);
+  mmCtx.fillText('S', cx, h - 10);
+  mmCtx.fillText('E', w - 10, cy);
+  mmCtx.fillText('W', 10, cy);
+}
+
+// ==================== UI STATE & FLOW ====================
+let impactCount = 0;
+let roverDamage = 0;
+let completedSteps = 0;
+let knowledgeCount = 0;
+let stepIndex = 0;
+let missionStartTime = 0;
+let cardTimer = 0;
+let lastHitTime = 0;
+let driveStartPosition = { x: 0, z: 0 };
+let activeTargetPos = null;
+
+function showMainMenu() {
+  state = 'menu';
+  $('menu').classList.add('on');
+  ['pause', 'done', 'insp', 'set'].forEach(id => $(id).classList.remove('on'));
+  
+  const listEl = $('ml');
+  listEl.innerHTML = '';
+  
+  if (gameMode === 'heli') {
+    MS_HELI.forEach((m, idx) => {
+      const btn = document.createElement('button');
+      const isLocked = (idx >= heliUnlocked);
+      btn.className = 's ms' + (isLocked ? ' lock' : '') + (idx === mi ? ' sel' : '');
+      btn.textContent = (isLocked ? '🔒 ' : '● ') + m.n;
+      btn.onclick = () => {
+        if (!isLocked) {
+          mi = idx;
+          showMainMenu();
+        }
+      };
+      listEl.appendChild(btn);
+    });
+  } else {
+    MS.forEach((m, idx) => {
+      const btn = document.createElement('button');
+      const isLocked = (idx >= unlocked);
+      btn.className = 's ms' + (isLocked ? ' lock' : '') + (idx === mi ? ' sel' : '');
+      btn.textContent = (isLocked ? '🔒 ' : '● ') + m.n;
+      btn.onclick = () => {
+        if (!isLocked) {
+          mi = idx;
+          showMainMenu();
+        }
+      };
+      listEl.appendChild(btn);
+    });
+  }
+  setHudVisible(false);
+}
+
+function setHudVisible(visible) {
+  document.querySelectorAll('.h').forEach(el => el.style.display = visible ? '' : 'none');
+}
+
+// Operation Mode Selection (Rover vs Helicopter)
+document.querySelectorAll('.op-mode').forEach(btn => {
+  btn.onclick = () => {
+    gameMode = btn.dataset.mode;
+    document.querySelectorAll('.op-mode').forEach(b => b.classList.toggle('sel', b === btn));
+    if (gameMode === 'heli') {
+      world = 'mars';
+      $('rover-dest-row').style.display = 'none';
+      $('menu-title').innerHTML = 'AFTERLIGHT <span>— INGENUITY FLIGHT OPERATIONS</span>';
+      $('go').innerHTML = '🚁 LAUNCH HELICOPTER FLIGHT';
+      $('ml-hdr').textContent = 'FLIGHT OPERATIONS LOG';
+      $('ctl-title').textContent = 'FLIGHT CONTROLS';
+      $('rover-ctl-guide').style.display = 'none';
+      $('heli-ctl-guide').style.display = 'block';
+      mi = 0;
+    } else {
+      $('rover-dest-row').style.display = 'block';
+      $('menu-title').innerHTML = 'AFTERLIGHT <span>— PLANETARY EXPLORER</span>';
+      $('go').innerHTML = '🚀 LAUNCH ROVER';
+      $('ml-hdr').textContent = 'MISSION SELECT';
+      $('ctl-title').textContent = 'TACTICAL CONTROLS';
+      $('rover-ctl-guide').style.display = 'block';
+      $('heli-ctl-guide').style.display = 'none';
+      mi = 0;
+    }
+    showMainMenu();
+  };
+});
+
+document.querySelectorAll('.mode').forEach(btn => {
+  btn.onclick = () => {
+    world = btn.dataset.w;
+    document.querySelectorAll('.mode').forEach(b => b.classList.toggle('sel', b === btn));
+  };
+});
+
+$('go').onclick = () => {
+  initAudioEngine();
+  if (AC && AC.state === 'suspended') AC.resume();
+  startMission();
+};
+$('cs').onclick = () => $('set').classList.add('on');
+$('sb').onclick = () => $('set').classList.remove('on');
+$('cb-view').onclick = cycleCameraMode;
+
+$('tg').onclick = () => {
+  const hidden = ($('cg').style.display === 'none');
+  $('cg').style.display = hidden ? '' : 'none';
+  $('tg').textContent = hidden ? 'hide' : 'show';
+};
+
+function togglePause(paused) {
+  if (paused) {
+    state = 'pause';
+    $('pause').classList.add('on');
+  } else {
+    state = 'play';
+    $('pause').classList.remove('on');
+  }
+}
+$('pb').onclick = () => togglePause(true);
+$('rs').onclick = () => togglePause(false);
+$('rt').onclick = () => { $('pause').classList.remove('on'); startMission(); };
+$('mm').onclick = showMainMenu;
+
+$('ic').onclick = () => {
+  $('insp').classList.remove('on');
+  state = 'play';
+  advanceMissionStep();
+};
+$('rp').onclick = () => { $('done').classList.remove('on'); startMission(); };
+$('nx').onclick = () => {
+  $('done').classList.remove('on');
+  const missions = (gameMode === 'heli') ? MS_HELI : MS;
+  if (mi < missions.length - 1) {
+    mi++;
+    startMission();
+  } else {
+    showMainMenu();
+  }
+};
+
+function displayEducationalCard(cardData) {
+  if (!cardData) return;
+  knowledgeCount++;
+  $('ct').textContent = cardData[0];
+  $('cb').textContent = cardData[1];
+  $('card').style.display = 'block';
+  cardTimer = 7.0; // Auto-fades after 7s or tap ✕ / card to dismiss immediately
+}
+
+// Educational Card Instant Dismissal
+if ($('card-close')) {
+  $('card-close').addEventListener('click', e => {
+    e.stopPropagation();
+    cardTimer = 0;
+    $('card').style.display = 'none';
+  });
+  $('card-close').addEventListener('touchstart', e => {
+    e.stopPropagation();
+    e.preventDefault();
+    cardTimer = 0;
+    $('card').style.display = 'none';
+  }, { passive: false });
+}
+if ($('card')) {
+  $('card').addEventListener('click', () => {
+    cardTimer = 0;
+    $('card').style.display = 'none';
+  });
+}
+
+function triggerScreenFlash(colorHex) {
+  const f = $('flash');
+  f.style.boxShadow = `inset 0 0 140px ${colorHex}`;
+  f.style.opacity = 1;
+  setTimeout(() => f.style.opacity = 0, 360);
+}
+
+function startMission() {
+  state = 'play';
+  ['menu', 'done', 'pause', 'set', 'insp'].forEach(id => $(id).classList.remove('on'));
+  
+  if (gameMode === 'heli') {
+    world = 'mars'; // Ingenuity operates in Mars atmosphere
+    buildWorld();
+    startHeliMission();
+    return;
+  }
+  
+  // Rover Mode initialization
+  buildWorld();
+  rover.group.visible = true;
+  heli.group.visible = true; // stays parked on base helipad
+  $('navcam-hud').style.display = 'none';
+
+  // Restore mobile touch action buttons for rover
+  if ($('mb-sprint')) {
+    const lbl = $('mb-sprint').querySelector('.m-lbl');
+    if (lbl) lbl.textContent = 'SPRINT';
+    const icon = $('mb-sprint').querySelector('.m-icon');
+    if (icon) icon.textContent = '⚡';
+  }
+  if ($('mb-brake')) {
+    const lbl = $('mb-brake').querySelector('.m-lbl');
+    if (lbl) lbl.textContent = 'BRAKE';
+    const icon = $('mb-brake').querySelector('.m-icon');
+    if (icon) icon.textContent = '🛑';
+  }
+  if ($('mb-scan')) {
+    const lbl = $('mb-scan').querySelector('.m-lbl');
+    if (lbl) lbl.textContent = 'SCAN';
+    const icon = $('mb-scan').querySelector('.m-icon');
+    if (icon) icon.textContent = '🔬';
+  }
+  if ($('mb-reset')) {
+    const lbl = $('mb-reset').querySelector('.m-lbl');
+    if (lbl) lbl.textContent = 'RESET';
+    const icon = $('mb-reset').querySelector('.m-icon');
+    if (icon) icon.textContent = '↺';
+  }
+  if ($('spd-unit')) $('spd-unit').textContent = 'cm/s';
+  if ($('torque-lbl')) $('torque-lbl').textContent = 'MOTOR TORQUE';
+
+  const m = MS[mi];
+  rover.x = m.s[0];
+  rover.z = m.s[1];
+  rover.yaw = (mi === 3) ? Math.PI * 1.35 : (mi === 2 ? -0.2 : (mi === 1 ? 0.5 : 0));
+  rover.v = 0;
+  rover.pitch = rover.roll = 0;
+  rover.y = getTerrainHeight(rover.x, rover.z);
+  rover.sprintEnergy = 100;
+  rover.isSprinting = false;
+  
+  impactCount = 0;
+  roverDamage = 0;
+  stepIndex = 0;
+  completedSteps = 0;
+  knowledgeCount = 0;
+  orbitYaw = 0;
+  missionStartTime = performance.now();
+  driveStartPosition = { x: rover.x, z: rover.z };
+  
+  setHudVisible(true);
+  $('card').style.display = 'none';
+  
+  if (world === 'moon') {
+    displayEducationalCard(MOONCARDS[mi % MOONCARDS.length]);
+  } else if (m.cards[0]) {
+    displayEducationalCard(m.cards[0]);
+  }
+  
+  updateObjectiveUI();
+}
+
+function updateObjectiveUI() {
+  if (gameMode === 'heli') {
+    const m = MS_HELI[mi];
+    $('mn').textContent = 'INGENUITY ' + m.n;
+    const curStep = m.steps[stepIndex];
+    $('obj').textContent = curStep ? curStep.t : 'Flight Plan Complete';
+    $('pg').style.width = ((stepIndex / m.steps.length) * 100) + '%';
+    $('ps').textContent = `Objective ${Math.min(stepIndex + 1, m.steps.length)}/${m.steps.length}`;
+    return;
+  }
+  const m = MS[mi];
+  const isMoon = (world === 'moon');
+  $('mn').textContent = (isMoon ? 'LUNAR MISSION ' : 'MARS MISSION ') + m.n;
+  
+  const curStep = m.steps[stepIndex];
+  $('obj').textContent = curStep ? curStep.t : 'Mission Objectives Fulfilled';
+  $('pg').style.width = ((stepIndex / m.steps.length) * 100) + '%';
+  $('ps').textContent = `Objective ${Math.min(stepIndex + 1, m.steps.length)}/${m.steps.length}`;
+}
+
+function advanceMissionStep() {
+  const m = (gameMode === 'heli') ? MS_HELI[mi] : MS[mi];
+  completedSteps++;
+  playBeep(660, 0.12);
+  setTimeout(() => playBeep(990, 0.25, 0.15), 100);
+  triggerScreenFlash('#69c9f2');
+  
+  if (m.cards && m.cards[stepIndex] && stepIndex > 0) {
+    displayEducationalCard(m.cards[stepIndex]);
+  }
+  
+  stepIndex++;
+  if (stepIndex >= m.steps.length) {
+    return completeMission();
+  }
+  updateObjectiveUI();
+}
+
+function completeMission() {
+  state = 'done';
+  playBeep(523, 0.3);
+  setTimeout(() => playBeep(784, 0.35), 180);
+  setTimeout(() => playBeep(1046, 0.55), 360);
+  
+  const elapsedSec = ((performance.now() - missionStartTime) / 1000) | 0;
+
+  if (gameMode === 'heli') {
+    const m = MS_HELI[mi];
+    const batteryRemaining = Math.round(heli.battery);
+    const flightScore = completedSteps * 350 + batteryRemaining * 5;
+    
+    $('dn').innerHTML = `
+      <b>${m.n} — <span style="color:var(--cy)">FLIGHT COMPLETED</span></b><br>
+      Aerial Flight Rating: <b>${flightScore} pts</b><br>
+      Avionics &amp; Battery Reserve: <b>${batteryRemaining}%</b><br>
+      Flight Objectives Cleared: <b>${completedSteps}/${m.steps.length}</b><br>
+      Aeronautical Science Logged: <b>${knowledgeCount + 2} telemetry logs</b><br>
+      Total Sortie Duration: <b>${elapsedSec}s</b>
+    `;
+
+    if (mi + 1 >= heliUnlocked && mi < MS_HELI.length - 1) {
+      heliUnlocked = mi + 2;
+      try { localStorage.afl_heli_unlocked = heliUnlocked; } catch(e) {}
+    }
+    $('nx').textContent = (mi < MS_HELI.length - 1) ? 'Proceed to Next Flight Sortie →' : 'Return to Base Operations';
+    $('done').classList.add('on');
+    setHudVisible(false);
+    return;
+  }
+
+  const m = MS[mi];
+  const accuracy = Math.max(0, 100 - impactCount * 8 - Math.round(roverDamage));
+  const expScore = completedSteps * 250;
+  const safetyScore = Math.round(accuracy * 3);
+  const totalScore = expScore + safetyScore + knowledgeCount * 120;
+  
+  $('dn').innerHTML = `
+    <b>${m.n} — <span style="color:var(--cy)">${world === 'moon' ? 'Lunar Expedition ' : ''}COMPLETED</span></b><br>
+    Exploration Rating: <b>${totalScore} pts</b><br>
+    Chassis Safety &amp; Accuracy: <b>${accuracy}%</b> (${impactCount} terrain collisions)<br>
+    Objectives Cleared: <b>${completedSteps}/${m.steps.length}</b><br>
+    Scientific Knowledge Earned: <b>${knowledgeCount} planetary geology dossiers</b><br>
+    Mission Time: <b>${elapsedSec}s</b>
+  `;
+  
+  if (mi + 1 >= unlocked && mi < MS.length - 1) {
+    unlocked = mi + 2;
+    try { localStorage.afl_unlocked = unlocked; } catch(e) {}
+  }
+  $('nx').textContent = (mi < MS.length - 1) ? 'Proceed to Next Sector →' : 'Return to Control Center';
+  $('done').classList.add('on');
+  setHudVisible(false);
+}
+
+function resetRoverPosition() {
+  const m = MS[mi];
+  const safePoint = (stepIndex > 0 && m.steps[stepIndex - 1] && m.steps[stepIndex - 1].p) ?
+    m.steps[stepIndex - 1].p[0] : m.s;
+    
+  rover.x = safePoint[0];
+  rover.z = safePoint[1];
+  rover.v = 0;
+  rover.pitch = rover.roll = 0;
+  rover.y = getTerrainHeight(rover.x, rover.z);
+  playBeep(260, 0.25);
+  triggerScreenFlash('#69c9f2');
+}
+
+function interactScientificTarget() {
+  const curStep = MS[mi].steps[stepIndex];
+  if (curStep && curStep.k === 'insp') {
+    const distToRock = Math.hypot(rover.x - targetMesh.position.x, rover.z - targetMesh.position.z);
+    if (distToRock < 7.0) {
+      state = 'insp';
+      const rockName = targetMesh.userData.name;
+      $('it').textContent = 'ANOMALY ANALYSIS: ' + rockName;
+      $('ib').textContent = (world === 'moon') ?
+        'Apollo 16 sample 60025 confirmed ferroan anorthosite as the ancient primordial lunar crust, crystallized 4.36 billion years ago during the cooling of the global magma ocean. Rich in Calcium and Aluminum silicates.' :
+        'Sojourner pressed its APXS sensor against "Yogi", the second rock investigated on Mars. Analysis revealed fine-grained basaltic andesite volcanic rock, proving ancient hydrothermal and volcanic activity.';
+      
+      knowledgeCount++;
+      $('insp').classList.add('on');
+      playBeep(880, 0.25);
+      renderSpectrometerChart();
+    } else {
+      displayEducationalCard(['Proximity Warning', 'Drive closer to the target rock — enter within the glowing scan perimeter and tap SCAN.']);
+    }
+  }
+}
+
+function renderSpectrometerChart() {
+  const spCv = $('sp');
+  const spCtx = spCv.getContext('2d');
+  const sw = spCv.width, sh = spCv.height;
+  spCtx.clearRect(0, 0, sw, sh);
+  
+  const elements = ['Mg', 'Al', 'Si', 'S', 'K', 'Ca', 'Ti', 'Fe'];
+  const values = (world === 'moon') ?
+    [0.45, 0.85, 0.70, 0.15, 0.10, 0.65, 0.35, 0.50] :
+    [0.35, 0.40, 0.95, 0.30, 0.15, 0.45, 0.25, 0.75];
+    
+  const barWidth = 42;
+  const spacing = (sw - 60) / elements.length;
+  
+  elements.forEach((elem, i) => {
+    const barHeight = values[i] * (sh - 45);
+    const bx = 30 + i * spacing;
+    const by = sh - 25 - barHeight;
+    
+    const grad = spCtx.createLinearGradient(0, by, 0, sh - 25);
+    grad.addColorStop(0, '#69C9F2');
+    grad.addColorStop(1, '#1e4963');
+    spCtx.fillStyle = grad;
+    spCtx.fillRect(bx, by, barWidth, barHeight);
+    
+    spCtx.strokeStyle = 'rgba(105, 201, 242, 0.8)';
+    spCtx.strokeRect(bx, by, barWidth, barHeight);
+    
+    spCtx.fillStyle = '#F2F5F8';
+    spCtx.font = 'bold 12px monospace';
+    spCtx.textAlign = 'center';
+    spCtx.fillText(elem, bx + barWidth / 2, sh - 8);
+    
+    spCtx.fillStyle = '#A8B8CA';
+    spCtx.font = '10px monospace';
+    spCtx.fillText(Math.round(values[i] * 42) + '%', bx + barWidth / 2, by - 6);
+  });
+}
+
+// ==================== MAIN GAME PHYSICS & ANIMATION LOOP ====================
+const clock = new T.Clock();
+const camTargetPos = new T.Vector3();
+
+function updateRoverPhysics(dt) {
+  const r = rover;
+  const m = MS[mi];
+  const isMoon = (world === 'moon');
+  const gravityScale = WORLD_CONFIG[world].gravity;
+  
+  // Combine Keyboard Inputs + Mobile Touch Virtual Inputs
+  const keyFwd = (K.KeyW || K.ArrowUp ? 1 : 0) - (K.KeyS || K.ArrowDown ? 1 : 0);
+  const keySteer = (K.KeyA || K.ArrowLeft ? 1 : 0) - (K.KeyD || K.ArrowRight ? 1 : 0);
+  
+  const forwardInput = clamp(keyFwd + touchInput.forward, -1, 1);
+  const steerInput = clamp(keySteer + touchInput.steer, -1, 1);
+  const brakeInput = (K.Space || touchInput.brake) ? 1 : 0;
+  const sprintInput = ((K.ShiftLeft || K.ShiftRight || touchInput.sprint) && forwardInput > 0 && r.sprintEnergy > 10);
+  
+  r.isSprinting = sprintInput;
+  if (sprintInput) {
+    r.sprintEnergy = Math.max(0, r.sprintEnergy - dt * 22);
+    $('sprint-status').className = 'active';
+    $('sprint-status').textContent = '⚡ OVERDRIVE SPRINT ACTIVE';
+    $('mb-sprint').classList.add('active');
+  } else {
+    r.sprintEnergy = Math.min(100, r.sprintEnergy + dt * 14);
+    $('sprint-status').className = '';
+    $('sprint-status').textContent = r.sprintEnergy < 20 ? 'COOLING DOWN...' : 'SPRINT: READY';
+    if (!touchInput.sprint) $('mb-sprint').classList.remove('active');
+  }
+  const sprintBarFill = $('sprint-bar').firstElementChild || $('sprint-bar').firstChild;
+  if (sprintBarFill) sprintBarFill.style.width = r.sprintEnergy + '%';
+  $('sprint-pct').textContent = Math.round(r.sprintEnergy) + '%';
+  
+  // Check target proximity to highlight SCAN button on mobile
+  if (targetMesh) {
+    const distToTarget = Math.hypot(rover.x - targetMesh.position.x, rover.z - targetMesh.position.z);
+    $('mb-scan').classList.toggle('pulse', distToTarget < 7.0 && MS[mi].steps[stepIndex]?.k === 'insp');
+  }
+  
+  const baseMaxSpeed = (forwardInput < 0) ? 2.2 : 3.8;
+  const sprintMultiplier = sprintInput ? 1.95 : 1.0;
+  const healthPenalty = 1.0 - clamp(roverDamage / 160, 0, 0.45);
+  const maxForwardSpeed = baseMaxSpeed * sprintMultiplier * healthPenalty;
+  
+  const slopePitch = Math.sin(r.pitch);
+  let accelRate = 0;
+  if (forwardInput !== 0) {
+    accelRate = forwardInput * (sprintInput ? 4.8 : 2.5);
+  } else if (brakeInput) {
+    accelRate = -Math.sign(r.v) * 7.5;
+  } else {
+    accelRate = -Math.sign(r.v) * 1.5;
+  }
+  
+  accelRate -= slopePitch * 5.0 * gravityScale;
+  r.v += accelRate * dt;
+  
+  if (forwardInput === 0 && !brakeInput && Math.abs(r.v) < 0.08) {
+    r.v = 0;
+  }
+  r.v = clamp(r.v, -2.4, maxForwardSpeed);
+  
+  if (slopePitch > 0.45 && forwardInput > 0 && !sprintInput) {
+    r.v = Math.min(r.v, 0.6);
+  }
+  
+  r.steer += (steerInput - r.steer) * Math.min(1, dt * 4.2);
+  const steerVisualAngle = r.steer * 0.48;
+  r.steerNodes.forEach(node => {
+    node.group.rotation.y = node.isFront ? steerVisualAngle : -steerVisualAngle * 0.5;
+  });
+  
+  const speedFactor = 0.55 + 0.45 * Math.min(1, Math.abs(r.v) / 1.5);
+  const turnDirection = (forwardInput < 0) ? -1 : 1;
+  r.yaw += r.steer * speedFactor * dt * turnDirection * (forwardInput || Math.abs(r.v) > 0.05 ? 1.1 : 0.9);
+  
+  r.x += Math.sin(r.yaw) * r.v * dt;
+  r.z += Math.cos(r.yaw) * r.v * dt;
+  r.x = clamp(r.x, -210, 210);
+  r.z = clamp(r.z, -210, 210);
+  
+  // Boulder Collisions
+  for (const rock of rockColliders) {
+    const dx = r.x - rock.x;
+    const dz = r.z - rock.z;
+    const dist = Math.hypot(dx, dz);
+    const minDistance = rock.r + 0.95;
+    
+    if (dist < minDistance && dist > 0.001) {
+      r.x = rock.x + (dx / dist) * minDistance;
+      r.z = rock.z + (dz / dist) * minDistance;
+      
+      const impactSpeed = Math.abs(r.v);
+      if (impactSpeed > 0.8 && (performance.now() - lastHitTime) > 650) {
+        lastHitTime = performance.now();
+        impactCount++;
+        roverDamage = Math.min(100, roverDamage + impactSpeed * 5.2);
+        triggerScreenFlash('#e4472f');
+        playBeep(110, 0.28, 0.3);
+        
+        const statusEl = $('st');
+        statusEl.textContent = roverDamage > 60 ? 'CRITICAL DAMAGE' : 'IMPACT REGISTERED';
+        statusEl.style.color = '#ef4444';
+        setTimeout(() => {
+          statusEl.textContent = roverDamage > 60 ? 'DAMAGED — REDUCED TORQUE' :
+                                (roverDamage > 25 ? 'MINOR CHASSIS DAMAGE' : 'SYSTEM NOMINAL');
+          statusEl.style.color = roverDamage > 60 ? '#f97316' : (roverDamage > 25 ? '#eab308' : '#4ade80');
+        }, 2000);
+      }
+      r.v *= -0.3;
+    }
+  }
+  
+  // Suspension Articulation
+  const wheelHeights = r.wheelPoints.map(pt => {
+    const worldPt = roverLocalToWorld(pt[0], pt[2]);
+    return getTerrainHeight(worldPt[0], worldPt[1]);
+  });
+  
+  const hFront = (wheelHeights[2] + wheelHeights[3]) / 2;
+  const hBack  = (wheelHeights[4] + wheelHeights[5]) / 2;
+  const hLeft  = (wheelHeights[0] + wheelHeights[2] + wheelHeights[4]) / 3;
+  const hRight = (wheelHeights[1] + wheelHeights[3] + wheelHeights[5]) / 3;
+  
+  const targetPitch = Math.atan2(hBack - hFront, 1.55);
+  const targetRoll  = Math.atan2(hLeft - hRight, 1.25);
+  
+  const slerpFactor = Math.min(1, dt * (isMoon ? 3.5 : 5.5));
+  r.pitch += (-targetPitch - r.pitch) * slerpFactor;
+  r.roll  += (targetRoll - r.roll) * slerpFactor;
+  
+  const targetY = (hFront + hBack) / 2;
+  r.y += (targetY - r.y) * Math.min(1, dt * (isMoon ? 6.5 : 9.0));
+  
+  r.group.position.set(r.x, r.y + 0.04, r.z);
+  r.group.rotation.set(0, r.yaw, 0);
+  r.group.rotateX(-r.pitch);
+  r.group.rotateZ(-r.roll);
+  
+  const avgHeight = wheelHeights.reduce((a, b) => a + b) / 6;
+  r.wheels.forEach((w, i) => {
+    const bumpOffset = clamp((wheelHeights[i] - avgHeight) * 0.65, -0.16, 0.16);
+    w.assembly.position.y += ((0.26 + bumpOffset) - w.assembly.position.y) * Math.min(1, dt * 11);
+    w.tire.rotation.x += (r.v * dt) / 0.25;
+  });
+  
+  r.odometer += Math.abs(r.v) * dt;
+  const simulatedSpeedCMS = Math.abs(r.v) * (sprintInput ? 28 : 12);
+  $('spd').textContent = simulatedSpeedCMS.toFixed(1);
+  const hpFill = $('hp') ? ($('hp').querySelector('i') || $('hp').firstElementChild) : null;
+  if (hpFill) hpFill.style.width = Math.max(0, 100 - roverDamage) + '%';
+  
+  // Mission Steps Check
+  const curStep = m.steps[stepIndex];
+  if (curStep) {
+    if (curStep.k === 'move') {
+      if (Math.hypot(r.x - driveStartPosition.x, r.z - driveStartPosition.z) > 4.5) {
+        advanceMissionStep();
+      }
+    } else if (curStep.k === 'sprint') {
+      if (sprintInput && Math.hypot(r.x - driveStartPosition.x, r.z - driveStartPosition.z) > 6.0) {
+        advanceMissionStep();
+      }
+    } else if (curStep.p) {
+      let minDist = 1e9, closestPt = curStep.p[0];
+      curStep.p.forEach(pt => {
+        const d = Math.hypot(pt[0] - r.x, pt[1] - r.z);
+        if (d < minDist) { minDist = d; closestPt = pt; }
+      });
+      activeTargetPos = closestPt;
+      if (minDist < 5.5) {
+        advanceMissionStep();
+      }
+    } else if (curStep.k === 'insp') {
+      activeTargetPos = [targetMesh.position.x, targetMesh.position.z];
+    }
+  } else {
+    activeTargetPos = null;
+  }
+  
+  if (activeTargetPos) {
+    beaconMesh.visible = beaconRing.visible = true;
+    const by = getTerrainHeight(activeTargetPos[0], activeTargetPos[1]);
+    beaconMesh.position.set(activeTargetPos[0], by + 25, activeTargetPos[1]);
+    beaconRing.position.set(activeTargetPos[0], by + 0.35, activeTargetPos[1]);
+    beaconRing.rotation.z += dt * 1.5;
+    
+    const distToTarget = Math.hypot(activeTargetPos[0] - r.x, activeTargetPos[1] - r.z);
+    const bearingRad = Math.atan2(activeTargetPos[0] - r.x, activeTargetPos[1] - r.z) - r.yaw;
+    const bearingDeg = ((bearingRad * 180 / Math.PI) + 540) % 360 - 180;
+    const arrow = (bearingDeg > 12) ? '→' : (bearingDeg < -12 ? '←' : '↑');
+    $('dist').textContent = `BEACON ${distToTarget.toFixed(0)}m ${arrow}`;
+  } else {
+    beaconMesh.visible = beaconRing.visible = false;
+  }
+  
+  const compassDeg = ((-r.yaw * 180 / Math.PI) % 360 + 360) % 360;
+  const compassCardinals = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+  const cardIndex = Math.round(compassDeg / 45) % 8;
+  $('comp').textContent = `${compassCardinals[cardIndex]} ${Math.round(compassDeg)}°`;
+  
+  // Wheel Dust Particles
+  const pool = dustParticles.userData.pool;
+  const kickRate = sprintInput ? 0.95 : 0.65;
+  if (Math.abs(r.v) > 0.25 && Math.random() < kickRate) {
+    [-0.62, 0.62].forEach(wx => {
+      const p = roverLocalToWorld(wx + (Math.random() - 0.5) * 0.2, -0.78);
+      pool.push({
+        x: p[0],
+        y: getTerrainHeight(p[0], p[1]) + 0.12,
+        z: p[1],
+        vy: (sprintInput ? 1.4 : 0.7) + Math.random() * 0.5,
+        life: sprintInput ? 2.2 : 1.5
+      });
+    });
+  }
+  
+  const dustPosAttr = dustParticles.geometry.attributes.position;
+  const dustLimit = dustPosAttr.count;
+  for (let i = 0; i < dustLimit; i++) {
+    const dp = pool[i];
+    if (dp) {
+      dp.life -= dt;
+      dp.y += dp.vy * dt * (isMoon ? 1.3 : 1.0);
+      dp.x += (Math.random() - 0.5) * dt * (isMoon ? 0.1 : 0.8);
+      dustPosAttr.setXYZ(i, dp.x, dp.y, dp.z);
+    } else {
+      dustPosAttr.setXYZ(i, 0, -999, 0);
+    }
+  }
+  while (pool.length && pool[0].life <= 0) pool.shift();
+  while (pool.length > dustLimit) pool.shift();
+  dustPosAttr.needsUpdate = true;
+  
+  // Lunar Electrostatic Dust Hover Animation
+  if (electrostaticDust) {
+    const ePos = electrostaticDust.geometry.attributes.position;
+    const time = performance.now() * 0.001;
+    for (let i = 0; i < ePos.count; i++) {
+      const ex = ePos.getX(i);
+      const ez = ePos.getZ(i);
+      const groundY = getTerrainHeight(r.x + ex, r.z + ez);
+      const hoverOffset = 0.6 + Math.sin(time * 1.5 + i) * 0.5;
+      ePos.setXYZ(i, ex, groundY + hoverOffset, ez);
+    }
+    electrostaticDust.position.set(r.x, 0, r.z);
+    electrostaticDust.geometry.attributes.position.needsUpdate = true;
+  }
+  
+  // Audio Synthesizer Update
+  if (AC) {
+    const speedRatio = Math.abs(r.v) / 3.8;
+    const sprintPitchBoost = sprintInput ? 26 : 0;
+    motorOsc.frequency.value = 36 + speedRatio * 20 + sprintPitchBoost;
+    motorGain.gain.value = Math.min(0.12, speedRatio * 0.05 + (forwardInput ? 0.02 : 0));
+    motorNoiseGain.gain.value = Math.min(0.08, speedRatio * 0.02 + (sprintInput ? 0.04 : 0));
+  }
+  
+  if (cardTimer > 0) {
+    cardTimer -= dt;
+    if (cardTimer <= 0) $('card').style.display = 'none';
+  }
+  
+  // Camera & Dynamic FOV
+  const targetFov = sprintInput ? 64 : 55;
+  cam.fov += (targetFov - cam.fov) * Math.min(1, dt * 4);
+  cam.updateProjectionMatrix();
+  
+  if (camViewMode === 2) {
+    const mastPos = roverLocalToWorld(0, 0.4);
+    cam.position.set(mastPos[0], r.y + 1.45, mastPos[1]);
+    const lookAhead = roverLocalToWorld(0, 8.0);
+    cam.lookAt(lookAhead[0], getTerrainHeight(lookAhead[0], lookAhead[1]) + 0.6, lookAhead[1]);
+  } else {
+    const viewYaw = r.yaw + Math.PI + orbitYaw;
+    const curCamDist = (camViewMode === 1) ? 4.2 : camDist;
+    const camHeight = Math.sin(orbitPitch) * curCamDist;
+    const camRadius = Math.cos(orbitPitch) * curCamDist;
+    
+    camTargetPos.set(
+      r.x + Math.sin(viewYaw) * camRadius,
+      0,
+      r.z + Math.cos(viewYaw) * camRadius
+    );
+    camTargetPos.y = Math.max(getTerrainHeight(camTargetPos.x, camTargetPos.z) + 1.3, r.y + camHeight + 0.5);
+    cam.position.lerp(camTargetPos, Math.min(1, dt * 6.5));
+    cam.lookAt(r.x, r.y + 0.85, r.z);
+    
+    if (!isPointerDragging && camTouchId1 === null && Math.abs(orbitYaw) > 0.001 && forwardInput > 0) {
+      orbitYaw *= Math.max(0, 1 - dt * 1.8);
+    }
+  }
+  
+  sunLight.position.set(r.x - 70, 55, r.z - 35);
+  sunLight.target.position.set(r.x, r.y, r.z);
+}
+
+// ==================== MAIN RENDER LOOP (CRASH PROTECTED) ====================
+function renderLoop() {
+  requestAnimationFrame(renderLoop);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  
+  try {
+    if (state === 'play' && worldGroup) {
+      if (gameMode === 'heli') {
+        updateHeliPhysics(dt);
+        drawHeliMinimap();
+      } else {
+        updateRoverPhysics(dt);
+        drawMinimap();
+      }
+      updateDustSystem(dt);
+    } else if (worldGroup && state !== 'play') {
+      const menuAngle = performance.now() * 0.0003;
+      if (gameMode === 'heli') {
+        cam.position.set(heli.x + Math.sin(menuAngle) * 7, heli.y + 3.5, heli.z + Math.cos(menuAngle) * 7);
+        cam.lookAt(heli.x, heli.y + 0.5, heli.z);
+      } else {
+        cam.position.set(rover.x + Math.sin(menuAngle) * 9, rover.y + 4.5, rover.z + Math.cos(menuAngle) * 9);
+        cam.lookAt(rover.x, rover.y + 0.9, rover.z);
+      }
+    }
+    
+    if (worldGroup && earthMesh) {
+      earthMesh.rotation.y += dt * 0.035;
+    }
+    
+    R.render(sc, cam);
+  } catch(err) {
+    console.error('Render frame error handled gracefully:', err);
+  }
+}
+
+// WebGL Context Loss Protection
+canvas.addEventListener('webglcontextlost', e => {
+  e.preventDefault();
+  console.warn('WebGL Context Lost - Protected against tab crash');
+}, false);
+canvas.addEventListener('webglcontextrestored', () => {
+  console.log('WebGL Context Restored - Rebuilding scene');
+  currentBuiltWorld = null;
+  buildWorld();
+}, false);
+
+// Initialize Game
+setHudVisible(false);
+buildWorld();
+cam.position.set(8, 4.5, 8);
+showMainMenu();
+renderLoop();
+</script>
+</body>
+</html>

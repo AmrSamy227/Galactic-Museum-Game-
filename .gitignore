@@ -1,0 +1,5 @@
+node_modules/
+.qodo/
+*.log
+.DS_Store
+Thumbs.db
